@@ -16,8 +16,21 @@ type LadekroneConfigEntry = ConfigEntry[LadekroneCoordinator]
 
 async def async_setup_entry(hass: HomeAssistant, entry: LadekroneConfigEntry) -> bool:
     coordinator = LadekroneCoordinator(hass, entry)
+    await coordinator.async_load_operators()
     await coordinator.async_config_entry_first_refresh()
     entry.runtime_data = coordinator
+
+    if operators_entity := coordinator.settings.operators_entity:
+
+        @callback
+        def _operators_changed(event: Event[EventStateChangedData]) -> None:
+            # Neue Ladenetze in der Liste (z. B. erste MultiPass-Ladung bei EnBW)
+            if coordinator.operators_changed():
+                hass.async_create_task(coordinator.async_request_refresh())
+
+        entry.async_on_unload(
+            async_track_state_change_event(hass, [operators_entity], _operators_changed)
+        )
 
     if entity_id := coordinator.settings.location_entity:
 

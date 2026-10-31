@@ -10,8 +10,10 @@ from typing import Any
 
 import aiohttp
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
+from homeassistant.const import STATE_UNAVAILABLE, STATE_UNKNOWN
+from homeassistant.core import HomeAssistant, State
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.util import dt as dt_util
 
@@ -23,6 +25,7 @@ from .const import (
     CONF_LOCATION_ENTITY,
     CONF_MIN_POWER,
     CONF_OPERATORS,
+    CONF_OPERATORS_ENTITY,
     DEFAULT_DATA_URL,
     DEFAULT_RADIUS_M,
     DOMAIN,
@@ -61,6 +64,7 @@ class SearchSettings:
     filters: Filters
     data_url: str
     location_entity: str | None = None
+    operators_entity: str | None = None
 
     @classmethod
     def from_entry(cls, entry: ConfigEntry) -> SearchSettings:
@@ -71,6 +75,7 @@ class SearchSettings:
             for part in str(config.get(CONF_OPERATORS) or "").split(",")
             if part.strip()
         )
+        operators_entity = config.get(CONF_OPERATORS_ENTITY) or None
         return cls(
             latitude=float(location["latitude"]),
             longitude=float(location["longitude"]),
@@ -80,10 +85,34 @@ class SearchSettings:
                 current=config.get(CONF_CURRENT) or "any",
                 connector=config.get(CONF_CONNECTOR) or "any",
                 operators=operators,
+                only_listed=operators_entity is not None,
             ),
             data_url=str(config.get(CONF_DATA_URL) or DEFAULT_DATA_URL).rstrip("/"),
             location_entity=config.get(CONF_LOCATION_ENTITY) or None,
+            operators_entity=operators_entity,
         )
+
+
+def operator_names(state: State | None) -> tuple[str, ...] | None:
+    """Ladenetze aus dem Attribut ``operators`` einer Entität.
+
+    Erlaubt sind eine Liste aus Namen oder aus Einträgen mit ``name`` (so liefert es
+    z. B. Ladecockpit) und ein kommagetrennter Text. None heißt: gerade nichts
+    Verwertbares, die zuletzt bekannte Liste gilt weiter.
+    """
+    if state is None or state.state in (STATE_UNAVAILABLE, STATE_UNKNOWN):
+        return None
+    raw = state.attributes.get("operators")
+    if isinstance(raw, str):
+        raw = raw.split(",")
+    if not isinstance(raw, (list, tuple)):
+        return None
+    names: list[str] = []
+    for item in raw:
+        name = item.get("name") if isinstance(item, dict) else item
+        if isinstance(name, str) and name.strip():
+            names.append(name.strip())
+    return tuple(dict.fromkeys(names))
 
 
 @dataclass
@@ -98,6 +127,7 @@ class LadekroneData:
     outlook: Outlook | None = None
     center: tuple[float, float] | None = None
     center_source: str | None = None
+    networks: tuple[str, ...] | None = None
 
 
 def evaluate(
@@ -140,6 +170,51 @@ class LadekroneCoordinator(DataUpdateCoordinator[LadekroneData]):
         self._last_fetch: datetime | None = None
         self._outlook_key: tuple | None = None
         self._outlook: Outlook | None = None
+        # Ladenetze aus einer Entität; gemerkt, damit sie einen Neustart überstehen,
+        # auch wenn die Entität erst später wieder einen Wert hat.
+        self._entity_operators: tuple[str, ...] = ()
+        self._operators_store: Store[dict[str, Any]] = Store(
+            hass, 1, f"{DOMAIN}.{entry.entry_id}.operators"
+        )
+
+    async def async_load_operators(self) -> None:
+        """Zuletzt bekannte Ladenetze der Entität laden."""
+        if not self.settings.operators_entity:
+            return
+        stored = await self._operators_store.async_load() or {}
+        names = stored.get("operators")
+        if isinstance(names, list):
+            self._entity_operators = tuple(str(name) for name in names)
+        self._refresh_entity_operators()
+
+    def _refresh_entity_operators(self) -> bool:
+        """Liste aus der Entität übernehmen; True, wenn sie sich geändert hat."""
+        entity_id = self.settings.operators_entity
+        if not entity_id:
+            return False
+        names = operator_names(self.hass.states.get(entity_id))
+        if names is None or names == self._entity_operators:
+            return False
+        self._entity_operators = names
+        self._operators_store.async_delay_save(
+            lambda: {"operators": list(self._entity_operators)}, 1
+        )
+        return True
+
+    def operators_changed(self) -> bool:
+        """Für den Listener: hat die Entität eine neue Liste?"""
+        return self._refresh_entity_operators()
+
+    @property
+    def entity_operators(self) -> tuple[str, ...]:
+        return self._entity_operators
+
+    def _current_filters(self) -> Filters:
+        filters = self.settings.filters
+        if not self.settings.operators_entity:
+            return filters
+        self._refresh_entity_operators()
+        return replace(filters, networks=self._entity_operators)
 
     def center(self) -> tuple[float, float, str]:
         """Mittelpunkt der Suche: Standort-Entität, sonst der feste Ort."""
@@ -181,7 +256,9 @@ class LadekroneCoordinator(DataUpdateCoordinator[LadekroneData]):
         stations = [station for tile in self._tiles.values() for station in tile]
         # Die 24-Stunden-Vorschau ändert sich nur zur nächsten Viertelstunde oder
         # mit neuen Daten; dazwischen wird sie nicht neu berechnet.
-        settings = replace(self.settings, latitude=lat, longitude=lon)
+        settings = replace(
+            self.settings, latitude=lat, longitude=lon, filters=self._current_filters()
+        )
         outlook_key = (future_steps(now)[0], self._last_fetch, settings, len(self._tiles))
         fresh = outlook_key != self._outlook_key
         offers, count, outlook = await self.hass.async_add_executor_job(
@@ -200,6 +277,7 @@ class LadekroneCoordinator(DataUpdateCoordinator[LadekroneData]):
             outlook=outlook,
             center=(lat, lon),
             center_source=center_source,
+            networks=settings.filters.networks if settings.operators_entity else None,
         )
 
     def _wanted_tiles(self, lat: float, lon: float, meta: dict[str, Any]) -> list[str]:

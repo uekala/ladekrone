@@ -1,5 +1,11 @@
 # Änderungen
 
+## 0.3.2
+
+- **Ladenetze aus Entität**: Die Liste „Nur diese Ladenetze“ kann zusätzlich aus dem Attribut `operators` einer Entität kommen, z. B. aus `sensor.ladecockpit_multipass` (Ladenetze, an denen Tesla MultiPass schon funktioniert hat). Kommt ein Ladenetz dazu, zählen sofort alle seine Stationen, ohne Neustart. Die zuletzt bekannte Liste übersteht Neustarts und kurze Ausfälle der Entität. Ist noch kein Ladenetz bekannt, wird keine Station vorgeschlagen.
+- Namen aus der Liste werden wortweise verglichen: „Aral pulse“ findet auch „Aral AG“, „E.ON Drive“ auch „E.ON Drive Infrastructure GmbH“.
+- Der Sensor „Ladestationen im Umkreis“ zeigt die aktuelle Liste im Attribut `networks`.
+
 ## 0.3.1
 
 - **Durchschnittspreis**: neuer Sensor mit dem mittleren aktuellen Ad-hoc-Preis aller passenden Stationen im Umkreis, mit `stations`, `min_price` und `max_price`. Gut als Standardpreis, wenn der echte Preis einer Ladung fehlt.

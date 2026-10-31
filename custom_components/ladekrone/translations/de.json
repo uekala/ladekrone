@@ -11,11 +11,13 @@
           "current_type": "Stromart",
           "connector": "Stecker",
           "operators": "Nur diese Ladenetze",
+          "operators_entity": "Ladenetze aus Entität",
           "location_entity": "Mittelpunkt folgt"
         },
         "data_description": {
           "location": "Mittelpunkt und Radius (max. 50 km) auf der Karte festlegen.",
           "operators": "Optional, kommagetrennt, z. B. „Tesla“ oder „EnBW, Ionity“. Leer = alle.",
+          "operators_entity": "Optional: Liest die Ladenetze zusätzlich aus dem Attribut „operators“ einer Entität, z. B. sensor.ladecockpit_multipass (Ladenetze, an denen MultiPass schon funktioniert hat). Die Liste wächst dann von selbst mit. Dann zählen nur Stationen dieser Ladenetze.",
           "location_entity": "Optional: Die Suche wandert mit dieser Entität mit, z. B. mit dem Auto (device_tracker) oder einer Person. Ohne aktuelle Position gilt der Ort oben. Der Radius kommt immer vom Suchgebiet."
         }
       }
@@ -35,11 +37,13 @@
           "current_type": "Stromart",
           "connector": "Stecker",
           "operators": "Nur diese Ladenetze",
+          "operators_entity": "Ladenetze aus Entität",
           "data_url": "Datenquelle (URL)",
           "location_entity": "Mittelpunkt folgt"
         },
         "data_description": {
           "operators": "Optional, kommagetrennt. Leer = alle.",
+          "operators_entity": "Optional: Liest die Ladenetze zusätzlich aus dem Attribut „operators“ einer Entität, z. B. sensor.ladecockpit_multipass (Ladenetze, an denen MultiPass schon funktioniert hat). Die Liste wächst dann von selbst mit. Dann zählen nur Stationen dieser Ladenetze.",
           "data_url": "Nur ändern, wenn du eine eigene Datenquelle betreibst.",
           "location_entity": "Optional: Die Suche wandert mit dieser Entität mit, z. B. mit dem Auto (device_tracker) oder einer Person. Ohne aktuelle Position gilt der Ort oben. Der Radius kommt immer vom Suchgebiet."
         }

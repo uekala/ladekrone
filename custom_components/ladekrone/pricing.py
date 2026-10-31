@@ -7,8 +7,10 @@ Alle Uhrzeiten aus den Daten sind Ortszeit (Europe/Berlin).
 from __future__ import annotations
 
 import math
+import re
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, time, timedelta
+from functools import lru_cache
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -32,6 +34,11 @@ class Filters:
     current: str = "any"  # any | ac | dc
     connector: str = "any"  # any | ccs | type2 | chademo
     operators: tuple[str, ...] = ()
+    # Ladenetze aus einer Entität, z. B. „Ladenetze, an denen MultiPass funktioniert hat“.
+    # Sie werden großzügiger verglichen als die eingetippten (siehe _network_matches).
+    networks: tuple[str, ...] = ()
+    # True: ohne bekannte Ladenetze passt keine Station (statt alle).
+    only_listed: bool = False
 
 
 @dataclass
@@ -251,18 +258,68 @@ def _group_matches(group: dict, filters: Filters) -> bool:
     return True
 
 
-def _operator_matches(station: dict, operators: tuple[str, ...]) -> bool:
-    if not operators:
+# Erste Wörter, die allein nichts über ein Ladenetz sagen
+GENERIC_WORDS = frozenset(
+    {
+        "stadtwerke",
+        "mobility",
+        "energie",
+        "energy",
+        "charging",
+        "charge",
+        "laden",
+        "ladenetz",
+        "strom",
+        "power",
+        "e",
+        "the",
+        "die",
+        "der",
+    }
+)
+
+
+@lru_cache(maxsize=8192)
+def _words(text: str) -> str:
+    """' aral pulse ' – nur Buchstaben und Ziffern, mit Leerzeichen an den Rändern."""
+    return " " + " ".join(re.findall(r"[^\W_]+", text.casefold())) + " "
+
+
+def _network_matches(name: str, station_words: str) -> bool:
+    """Ladenetz aus einer Liste wie „Aral pulse“ gegen den gemeldeten Betreiber.
+
+    Passt, wenn der ganze Name als Wortfolge vorkommt, oder wenn sein erstes Wort
+    (mindestens drei Zeichen, nicht allgemein wie „Stadtwerke“) als Wort vorkommt.
+    So findet „Aral pulse“ auch „Aral AG“ und „E.ON Drive“ „E.ON Drive Infrastructure“.
+    """
+    words = _words(name)
+    parts = words.split()
+    if not parts:
+        return False
+    if words in station_words:
         return True
-    haystack = " ".join(filter(None, (station.get("o"), station.get("b")))).casefold()
-    return any(op.casefold() in haystack for op in operators)
+    first = parts[0]
+    return len(first) >= 3 and first not in GENERIC_WORDS and f" {first} " in station_words
+
+
+def _operator_matches(station: dict, filters: Filters) -> bool:
+    if not filters.operators and not filters.networks:
+        return not filters.only_listed
+    raw = " ".join(filter(None, (station.get("o"), station.get("b"))))
+    haystack = raw.casefold()
+    if any(op.casefold() in haystack for op in filters.operators):
+        return True
+    if filters.networks:
+        station_words = _words(raw)
+        return any(_network_matches(name, station_words) for name in filters.networks)
+    return False
 
 
 def best_offer(
     station: dict, lat: float, lon: float, filters: Filters, local: datetime
 ) -> Offer | None:
     """Günstigstes passendes Angebot einer Station oder None."""
-    if not _operator_matches(station, filters.operators):
+    if not _operator_matches(station, filters):
         return None
     rates = station.get("r") or []
     best: tuple[Price, dict] | None = None
@@ -334,7 +391,7 @@ def count_stations(
                 continue
         except (KeyError, TypeError):
             continue
-        if _operator_matches(station, filters.operators) and any(
+        if _operator_matches(station, filters) and any(
             _group_matches(g, filters) for g in station.get("g", [])
         ):
             total += 1
