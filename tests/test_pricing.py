@@ -184,3 +184,39 @@ def test_cheapest_ahead_keeps_current_when_nothing_cheaper(stations: list[dict])
     assert outlook.offer is offers[0]
     assert outlook.start == now
     assert outlook.end.astimezone(LOCAL_TZ) == _local(7, day=28)
+
+
+def test_only_listed_without_operators_matches_nothing(stations: list[dict]) -> None:
+    now = _local(12).astimezone(UTC)
+    assert find_offers(stations, *HOME, 10, Filters(only_listed=True), now) == []
+    listed = Filters(operators=("tesla",), only_listed=True)
+    assert [o.operator for o in find_offers(stations, *HOME, 10, listed, now)] == ["Tesla"]
+
+
+@pytest.mark.parametrize(
+    ("network", "operator", "expected"),
+    [
+        ("Aral pulse", "Aral AG", True),
+        ("E.ON Drive", "E.ON Drive Infrastructure GmbH", True),
+        ("EWE Go", "EWE Go GmbH", True),
+        ("IONITY", "IONITY GmbH", True),
+        ("Allego", "Allego GmbH", True),
+        ("Stadtwerke", "Stadtwerke Krefeld AG", True),
+        ("Stadtwerke Moers", "Stadtwerke Krefeld AG", False),
+        ("bp pulse", "Ebp Energie GmbH", False),
+        ("Tesla", "Teslastrom e.K.", False),
+        ("Fastned", "EnBW mobility+ AG & Co. KG", False),
+    ],
+)
+def test_networks_from_entity_match_by_words(network: str, operator: str, expected: bool) -> None:
+    station = {
+        "id": "x",
+        "la": HOME[0],
+        "lo": HOME[1],
+        "o": operator,
+        "g": [{"kw": 150, "c": "dc", "k": ["ccs"], "n": 2, "r": [0]}],
+        "r": [{"p": [{"t": "kwh", "v": 0.5}]}],
+    }
+    filters = Filters(networks=(network,), only_listed=True)
+    now = _local(12).astimezone(UTC)
+    assert bool(find_offers([station], *HOME, 5, filters, now)) is expected

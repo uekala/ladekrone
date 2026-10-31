@@ -17,6 +17,7 @@ CONF_CONNECTOR: Final = "connector"
 CONF_OPERATORS: Final = "operators"
 CONF_DATA_URL: Final = "data_url"
 CONF_LOCATION_ENTITY: Final = "location_entity"
+CONF_OPERATORS_ENTITY: Final = "operators_entity"
 
 MIN_POWER_OPTIONS: Final = ["0", "22", "50", "150"]
 CURRENT_OPTIONS: Final = ["any", "ac", "dc"]

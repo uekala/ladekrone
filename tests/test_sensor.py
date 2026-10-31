@@ -204,3 +204,68 @@ async def test_search_follows_location_entity(
     await hass.async_block_till_done()
     count = hass.states.get("sensor.ladekrone_charging_stations_in_area")
     assert count.attributes["center_source"] == "fixed"
+
+
+async def test_operators_follow_entity_and_survive_restart(
+    hass: HomeAssistant,
+    aioclient_mock: AiohttpClientMocker,
+    freezer: FrozenDateTimeFactory,
+    published_data,
+) -> None:
+    freezer.move_to(datetime(2026, 10, 27, 11, 0, tzinfo=UTC))
+    _mock_data(aioclient_mock, published_data)
+    # So liefert Ladecockpit die Ladenetze, an denen MultiPass funktioniert hat
+    hass.states.async_set(
+        "sensor.multipass", "1", {"operators": [{"name": "Tesla", "stations": 1}]}
+    )
+    entry = _entry(hass, operators_entity="sensor.multipass")
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    price = hass.states.get("sensor.ladekrone_cheapest_price")
+    assert price.attributes["operator"] == "Tesla"
+    assert float(price.state) == 0.59
+
+    # Neues Ladenetz in der Liste: wird ohne Neustart berücksichtigt
+    hass.states.async_set(
+        "sensor.multipass", "2", {"operators": [{"name": "Tesla"}, {"name": "Stadtwerke"}]}
+    )
+    freezer.tick(timedelta(seconds=15))
+    async_fire_time_changed(hass)
+    await hass.async_block_till_done()
+    price = hass.states.get("sensor.ladekrone_cheapest_price")
+    assert price.attributes["operator"] == "Stadtwerke Musterstadt"
+    count = hass.states.get("sensor.ladekrone_charging_stations_in_area")
+    assert count.state == "2"
+    assert count.attributes["networks"] == ["Tesla", "Stadtwerke"]
+
+    # Kurz nicht verfügbar: die bekannte Liste gilt weiter
+    hass.states.async_set("sensor.multipass", "unavailable", {})
+    freezer.tick(timedelta(minutes=6))
+    async_fire_time_changed(hass)
+    await hass.async_block_till_done()
+    assert hass.states.get("sensor.ladekrone_cheapest_price").attributes["operator"] == (
+        "Stadtwerke Musterstadt"
+    )
+
+    # Nach einem Neustart ist die Entität erst einmal weg: die gemerkte Liste gilt
+    assert await hass.config_entries.async_unload(entry.entry_id)
+    hass.states.async_remove("sensor.multipass")
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    assert float(hass.states.get("sensor.ladekrone_cheapest_price").state) == 0.49
+
+
+async def test_operators_entity_without_list_shows_nothing(
+    hass: HomeAssistant,
+    aioclient_mock: AiohttpClientMocker,
+    freezer: FrozenDateTimeFactory,
+    published_data,
+) -> None:
+    freezer.move_to(datetime(2026, 10, 27, 11, 0, tzinfo=UTC))
+    _mock_data(aioclient_mock, published_data)
+    entry = _entry(hass, operators_entity="sensor.gibt_es_nicht")
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    assert hass.states.get("sensor.ladekrone_cheapest_price").state == "unknown"
+    assert hass.states.get("sensor.ladekrone_charging_stations_in_area").state == "0"

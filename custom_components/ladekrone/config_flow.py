@@ -23,6 +23,7 @@ from .const import (
     CONF_LOCATION_ENTITY,
     CONF_MIN_POWER,
     CONF_OPERATORS,
+    CONF_OPERATORS_ENTITY,
     CONNECTOR_OPTIONS,
     CURRENT_OPTIONS,
     DEFAULT_DATA_URL,
@@ -64,6 +65,10 @@ def _search_schema(defaults: dict[str, Any]) -> dict:
             description={"suggested_value": defaults.get(CONF_OPERATORS, "")},
         ): selector.TextSelector(),
         vol.Optional(
+            CONF_OPERATORS_ENTITY,
+            description={"suggested_value": defaults.get(CONF_OPERATORS_ENTITY)},
+        ): selector.EntitySelector(),
+        vol.Optional(
             CONF_LOCATION_ENTITY,
             description={"suggested_value": defaults.get(CONF_LOCATION_ENTITY)},
         ): selector.EntitySelector(selector.EntitySelectorConfig(domain=LOCATION_DOMAINS)),
@@ -86,8 +91,9 @@ def _clean(user_input: dict[str, Any]) -> dict[str, Any]:
     location.setdefault("radius", DEFAULT_RADIUS_M)
     data[CONF_LOCATION] = location
     data[CONF_OPERATORS] = str(data.get(CONF_OPERATORS) or "").strip()
-    if not data.get(CONF_LOCATION_ENTITY):
-        data.pop(CONF_LOCATION_ENTITY, None)
+    for key in (CONF_LOCATION_ENTITY, CONF_OPERATORS_ENTITY):
+        if not data.get(key):
+            data.pop(key, None)
     return data
 
 
@@ -136,6 +142,9 @@ class LadekroneOptionsFlow(OptionsFlow):
             errors = _validate(user_input)
             if not errors:
                 data = _clean(user_input)
+                # Geleerte Felder ausdrücklich leeren, sonst gälte der Wert aus der Einrichtung
+                for key in (CONF_LOCATION_ENTITY, CONF_OPERATORS_ENTITY):
+                    data.setdefault(key, None)
                 url = str(data.get(CONF_DATA_URL) or "").strip().rstrip("/")
                 # Die Standardquelle nicht festschreiben, damit ein Umzug der Daten
                 # (wie von ladekoenig nach ladekrone) bestehende Einträge mitnimmt.

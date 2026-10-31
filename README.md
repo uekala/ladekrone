@@ -65,6 +65,7 @@ Deine Position verlässt Home Assistant nicht – abgerufen werden nur ganze Kac
 | Stromart | Alle, AC oder DC |
 | Stecker | Alle, CCS, Typ 2 oder CHAdeMO |
 | Nur diese Ladenetze | Optional, kommagetrennt, z. B. `Tesla` oder `EnBW, Ionity` |
+| Ladenetze aus Entität | Optional: Liest weitere Ladenetze aus dem Attribut `operators` einer Entität (Liste aus Namen oder aus Einträgen mit `name`), z. B. `sensor.ladecockpit_multipass` aus [Ladecockpit](https://github.com/uekala/ladecockpit) mit den Ladenetzen, an denen Tesla MultiPass schon funktioniert hat. Die Liste wächst mit, es zählen alle Stationen dieser Netze. Solange kein Ladenetz bekannt ist, wird nichts vorgeschlagen |
 | Mittelpunkt folgt | Optional: `device_tracker`, `person` oder `zone`. Die Suche wandert mit; ohne aktuelle Position gilt das Suchgebiet oben |
 
 Alles lässt sich später über **Konfigurieren** ändern.
@@ -76,7 +77,7 @@ Alles lässt sich später über **Konfigurieren** ändern.
 | Günstigster Preis | Aktuell günstigster Ad-hoc-Preis in €/kWh. Attribute: `operator`, `address`, `distance_km`, `power_kw`, `current_type`, `connectors`, `minute_fee`, `minute_fee_from`, `session_fee`, `price_updated`, `latitude`, `longitude`, `offers` (Top 5). Bei zeitabhängigen Tarifen zusätzlich `until` (Preis gilt bis) und `next_price` (Preis danach), auch in jedem Eintrag von `offers` |
 | Günstigster Preis in 24 h | Niedrigster Preis, der in den nächsten 24 Stunden im Umkreis erreicht wird. Attribute wie oben plus `from`, `until` und `now` (gilt schon jetzt) |
 | Durchschnittspreis | Mittlerer aktueller Ad-hoc-Preis aller passenden Stationen mit Preis im Umkreis. Attribute: `stations`, `min_price`, `max_price` |
-| Ladestationen im Umkreis | Passende Stationen. Attribute: `with_price` (davon mit Preis), `center_source` (`fixed` oder die Entität, der die Suche folgt), `center_latitude`, `center_longitude` |
+| Ladestationen im Umkreis | Passende Stationen. Attribute: `with_price` (davon mit Preis), `networks` (Ladenetze aus der Entität, falls eingestellt), `center_source` (`fixed` oder die Entität, der die Suche folgt), `center_latitude`, `center_longitude` |
 | Datenstand | Zeitpunkt der letzten Datenaufbereitung (Diagnose) |
 
 ## Beispiele

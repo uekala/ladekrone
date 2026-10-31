@@ -131,6 +131,7 @@ SENSORS: tuple[LadekroneSensorDescription, ...] = (
             "center_source": data.center_source,
             "center_latitude": data.center[0] if data.center else None,
             "center_longitude": data.center[1] if data.center else None,
+            **({"networks": list(data.networks)} if data.networks is not None else {}),
         },
     ),
     LadekroneSensorDescription(
