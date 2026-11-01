@@ -269,3 +269,37 @@ async def test_operators_entity_without_list_shows_nothing(
     await hass.async_block_till_done()
     assert hass.states.get("sensor.ladekrone_cheapest_price").state == "unknown"
     assert hass.states.get("sensor.ladekrone_charging_stations_in_area").state == "0"
+
+
+async def test_operators_entity_appears_after_setup(
+    hass: HomeAssistant,
+    aioclient_mock: AiohttpClientMocker,
+    freezer: FrozenDateTimeFactory,
+    published_data,
+) -> None:
+    """Nach einem Neustart von HA schreibt Ladecockpit seinen Sensor erst Minuten später."""
+    freezer.move_to(datetime(2026, 10, 27, 11, 0, tzinfo=UTC))
+    _mock_data(aioclient_mock, published_data)
+    entry = _entry(hass, operators_entity="sensor.ladecockpit_multipass")
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    count = hass.states.get("sensor.ladekrone_charging_stations_in_area")
+    assert count.attributes["networks"] == []
+
+    hass.states.async_set(
+        "sensor.ladecockpit_multipass",
+        "1",
+        {
+            "text": "MultiPass hat bisher an 1 Station funktioniert – Anbieter: Tesla.",
+            "stations": [{"site": "Tesla - Musterstadt", "operator": "Tesla", "sessions": 1}],
+            "operators": [{"name": "Tesla", "stations": 1, "sessions": 1, "last": "2026-10-27"}],
+            "sessions": 1,
+        },
+    )
+    await hass.async_block_till_done()
+    freezer.tick(timedelta(seconds=15))
+    async_fire_time_changed(hass)
+    await hass.async_block_till_done()
+    count = hass.states.get("sensor.ladekrone_charging_stations_in_area")
+    assert count.attributes["networks"] == ["Tesla"]
+    assert hass.states.get("sensor.ladekrone_cheapest_price").attributes["operator"] == "Tesla"
