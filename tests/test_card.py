@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from unittest.mock import AsyncMock, Mock
 
 from homeassistant.components.frontend import DATA_EXTRA_MODULE_URL
@@ -33,7 +34,9 @@ async def test_card_registered_with_version(hass: HomeAssistant) -> None:
     (paths,), _ = http.async_register_static_paths.call_args
     assert paths[0].url_path == URL_BASE
     assert paths[0].path == str(FRONTEND_DIR)
-    assert urls == {f"{URL_BASE}/{CARD_FILE}?v=0.4.0"}
+    manifest = FRONTEND_DIR.parent / "manifest.json"
+    version = json.loads(manifest.read_text(encoding="utf-8"))["version"]
+    assert urls == {f"{URL_BASE}/{CARD_FILE}?v={version}"}
 
 
 async def test_card_skipped_without_frontend(hass: HomeAssistant) -> None:

@@ -37,6 +37,10 @@ jobs:
           VERSION: ${{ steps.version.outputs.version }}
         run: |
           if gh release view "$TAG" >/dev/null 2>&1; then
+            if [ "$GITHUB_REF_TYPE" = "tag" ]; then
+              echo "::notice::Release $TAG ist schon angelegt, nichts zu tun"
+              exit 0
+            fi
             echo "::error::Release $TAG gibt es schon – erst die Version in manifest.json erhöhen"
             exit 1
           fi
