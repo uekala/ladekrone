@@ -1,5 +1,9 @@
 # Änderungen
 
+## 0.4.0
+
+- **Dashboard-Karte im Look der Web-App**: `custom:ladekrone-card` zeigt den günstigsten Preis groß, Ladenetz, Adresse, Leistung, Ladepunkte, Gebühren und bis wann der Preis gilt, dazu „Route starten“, „Später günstiger“ und die weiteren Stationen zum Aufklappen. Mit den Schriften der App, hell und dunkel, Deutsch und Englisch. Die Karte kommt mit der Integration, ist im Karten-Dialog unter „Ladekrone“ zu finden und lässt sich dort ohne YAML einrichten.
+
 ## 0.3.2
 
 - **Ladenetze aus Entität**: Die Liste „Nur diese Ladenetze“ kann zusätzlich aus dem Attribut `operators` einer Entität kommen, z. B. aus `sensor.ladecockpit_multipass` (Ladenetze, an denen Tesla MultiPass schon funktioniert hat). Kommt ein Ladenetz dazu, zählen sofort alle seine Stationen, ohne Neustart. Die zuletzt bekannte Liste übersteht Neustarts und kurze Ausfälle der Entität. Ist noch kein Ladenetz bekannt, wird keine Station vorgeschlagen.
