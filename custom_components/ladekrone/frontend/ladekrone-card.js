@@ -45,6 +45,8 @@ const TEXT = {
     dayAfter: "übermorgen ",
     clock: (t) => `${t} Uhr`,
     adhoc: "Ad-hoc-Preise ohne Vertrag, gemeldet von den Ladenetzen.",
+    tesla: "Supercharger-Preise laut AFIR, in der Tesla-App kann der Preis abweichen.",
+    supercharger: (city) => `Supercharger ${city}`.trim(),
     editor: { entity: "Günstigster Preis (Ladekrone-Sensor)", title: "Überschrift", show_list: "Weitere Stationen zeigen" },
   },
   en: {
@@ -73,6 +75,8 @@ const TEXT = {
     dayAfter: "the day after tomorrow ",
     clock: (t) => t,
     adhoc: "Ad-hoc prices without a contract, as reported by the networks.",
+    tesla: "Supercharger prices as reported under AFIR; the Tesla app may show a different price.",
+    supercharger: (city) => `Supercharger ${city}`.trim(),
     editor: { entity: "Cheapest price (Ladekrone sensor)", title: "Title", show_list: "Show more stations" },
   },
 };
@@ -160,6 +164,9 @@ function splitAddress(address) {
   const last = parts.length > 1 ? parts.pop() : "";
   return { street: parts.join(", "), city: last.replace(/^\d{4,5}\s+/, "") };
 }
+
+// Superchargern gibt Tesla keinen eigenen Namen, „Tesla, Inc.“ sagt nichts: Ort statt Firma.
+const isTesla = (offer) => /^tesla\b/i.test(offer?.operator || "");
 
 const has = (state) => state && !["unknown", "unavailable", ""].includes(state.state);
 
@@ -268,6 +275,10 @@ class LadekroneCard extends HTMLElement {
     return offer.next_price == null ? t.untilNone(f.when(offer.until)) : t.until(f.when(offer.until), f.euro(offer.next_price));
   }
 
+  _name(offer, t) {
+    return isTesla(offer) ? t.supercharger(splitAddress(offer.address).city) : offer.operator || t.unknown;
+  }
+
   _route(offer) {
     const apple = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
     return apple
@@ -314,8 +325,8 @@ class LadekroneCard extends HTMLElement {
       body = `<article class="winner">
         <p class="label">${esc(t.best)}</p>
         <p class="price"><span class="num">${f.euro(best.price)}</span><span class="unit">€/kWh</span></p>
-        <p class="who">${esc(best.operator || t.unknown)}</p>
-        <p class="addr">${esc([street, city].filter(Boolean).join(", "))}</p>
+        <p class="who">${esc(this._name(best, t))}</p>
+        <p class="addr">${esc((isTesla(best) ? [street] : [street, city]).filter(Boolean).join(", "))}</p>
         <ul class="facts">${this._facts(best, f, t).map((x) => `<li>${esc(x)}</li>`).join("")}</ul>
         ${until ? `<p class="until">${esc(until)}</p>` : ""}
         ${fees ? `<p class="fees">${esc(fees)}</p>` : ""}
@@ -327,7 +338,7 @@ class LadekroneCard extends HTMLElement {
 
       if (has(ahead) && ahead.attributes.now === false && Number(ahead.state) < best.price - 1e-9) {
         const o = ahead.attributes;
-        const where = [o.operator || t.unknown, splitAddress(o.address).city].filter(Boolean).join(", ");
+        const where = isTesla(o) ? this._name(o, t) : [o.operator || t.unknown, splitAddress(o.address).city].filter(Boolean).join(", ");
         body += `<aside class="later">${CLOCK}
           <strong>${esc(t.later(f.euro(Number(ahead.state))))}</strong>
           <p>${esc(t.laterAt(f.when(o.from), o.until ? f.when(o.until, o.from) : "", where, f.one(o.distance_km ?? 0)))}</p>
@@ -338,14 +349,14 @@ class LadekroneCard extends HTMLElement {
       if (rest.length) {
         const rows = rest.map((o) => {
           const addr = splitAddress(o.address);
-          const head = [addr.city || addr.street, `${f.one(o.distance_km ?? 0)} km`, o.power_kw ? `${f.whole(Math.round(o.power_kw))} kW` : ""]
+          const head = [isTesla(o) ? addr.street : addr.city || addr.street, `${f.one(o.distance_km ?? 0)} km`, o.power_kw ? `${f.whole(Math.round(o.power_kw))} kW` : ""]
             .filter(Boolean).join(", ");
           const rowUntil = this._until(o, f, t);
           const rowFees = this._fees(o, f, t);
           const id = `${o.latitude},${o.longitude}`;
           return `<li><details data-key="${esc(id)}"${open.has(id) ? " open" : ""}>
             <summary>
-              <span class="op">${esc(o.operator || t.unknown)}</span>
+              <span class="op">${esc(this._name(o, t))}</span>
               <span class="p">${f.euro(o.price)}<small>€/kWh</small></span>
               <span class="sub">${esc(head)}</span>
               ${rowUntil ? `<span class="change">${esc(rowUntil)}</span>` : ""}
@@ -362,6 +373,7 @@ class LadekroneCard extends HTMLElement {
       }
     }
 
+    const tesla = has(main) && [main.attributes, ...(main.attributes.offers || [])].some(isTesla);
     const summary = has(count) && has(main)
       ? `<p>${esc(t.summary(f.whole(count.attributes.with_price ?? 0), f.whole(Number(count.state))))}</p>` : "";
 
@@ -369,7 +381,7 @@ class LadekroneCard extends HTMLElement {
       <ha-card>
         <div class="bar"><span class="brand">${CROWN}${esc(title)}</span>${stand}</div>
         ${body}
-        <div class="foot">${summary}<p>${esc(t.adhoc)}</p></div>
+        <div class="foot">${summary}<p>${esc(t.adhoc)}</p>${tesla ? `<p>${esc(t.tesla)}</p>` : ""}</div>
       </ha-card>`;
 
     this.shadowRoot.querySelectorAll("[data-more]").forEach((button) =>

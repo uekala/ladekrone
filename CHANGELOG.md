@@ -1,5 +1,10 @@
 # Änderungen
 
+## 0.4.1
+
+- **Karte: Supercharger mit Ort.** Statt „Tesla, Inc.“ steht „Supercharger Willich“, in der Liste dann die Straße. Zeigt die Karte Supercharger-Preise, weist sie darauf hin, dass der Preis in der Tesla-App abweichen kann.
+- Ein Release, das schon von Hand angelegt ist, lässt den Release-Workflow nicht mehr scheitern.
+
 ## 0.4.0
 
 - **Dashboard-Karte im Look der Web-App**: `custom:ladekrone-card` zeigt den günstigsten Preis groß, Ladenetz, Adresse, Leistung, Ladepunkte, Gebühren und bis wann der Preis gilt, dazu „Route starten“, „Später günstiger“ und die weiteren Stationen zum Aufklappen. Mit den Schriften der App, hell und dunkel, Deutsch und Englisch. Die Karte kommt mit der Integration, ist im Karten-Dialog unter „Ladekrone“ zu finden und lässt sich dort ohne YAML einrichten.
