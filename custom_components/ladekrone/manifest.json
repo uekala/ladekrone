@@ -1,6 +1,10 @@
 {
   "domain": "ladekrone",
   "name": "Ladekrone",
+  "after_dependencies": [
+    "frontend",
+    "http"
+  ],
   "categories": [
     "energy.ev_charging",
     "energy.energy_prices"
@@ -15,5 +19,5 @@
   "iot_class": "cloud_polling",
   "issue_tracker": "https://github.com/uekala/ladekrone/issues",
   "requirements": [],
-  "version": "0.3.2"
+  "version": "0.4.0"
 }

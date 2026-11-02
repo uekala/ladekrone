@@ -18,6 +18,7 @@ Seit der EU-Verordnung AFIR müssen alle Ladenetze Standorte, Leistung und Ad-ho
 - **Mehrere Suchgebiete**: zum Beispiel „Zuhause“, „Arbeit“ und „nur Supercharger“
 - **Namen statt Kürzeln**: Wo ein Ladenetz nur seine ID meldet (z. B. `DE*EWE`), steht der Firmenname
 - Der Preissensor trägt Koordinaten und erscheint dadurch auf der Karte
+- **Eigene Dashboard-Karte** im Look der Web-App, ohne Zusatzkarten
 
 ## Web-App
 
@@ -79,6 +80,25 @@ Alles lässt sich später über **Konfigurieren** ändern.
 | Durchschnittspreis | Mittlerer aktueller Ad-hoc-Preis aller passenden Stationen mit Preis im Umkreis. Attribute: `stations`, `min_price`, `max_price` |
 | Ladestationen im Umkreis | Passende Stationen. Attribute: `with_price` (davon mit Preis), `networks` (Ladenetze aus der Entität, falls eingestellt), `center_source` (`fixed` oder die Entität, der die Suche folgt), `center_latitude`, `center_longitude` |
 | Datenstand | Zeitpunkt der letzten Datenaufbereitung (Diagnose) |
+
+## Dashboard-Karte
+
+Ladekrone bringt eine eigene Karte mit, die aussieht wie die Web-App: der günstigste Preis groß, darunter Ladenetz, Adresse, Leistung und „Route starten“, „Später günstiger“ für die nächsten 24 Stunden und die weiteren Stationen zum Aufklappen. Hell und dunkel folgen Home Assistant. Mushroom, card-mod oder andere Zusatzkarten sind nicht nötig.
+
+Die Karte wird mit der Integration geladen. Im Dashboard „Karte hinzufügen“ wählen und nach „Ladekrone“ suchen, oder in YAML:
+
+```yaml
+type: custom:ladekrone-card
+entity: sensor.ladekrone_gunstigster_preis
+```
+
+| Option | Inhalt |
+|--------|--------|
+| `entity` | Sensor „Günstigster Preis“ eines Suchgebiets (Pflicht). „Später günstiger“, Datenstand und Anzahl der Stationen holt die Karte vom selben Suchgebiet. |
+| `title` | Überschrift, Standard ist der Name des Suchgebiets |
+| `show_list` | Weitere Stationen zeigen, Standard `true` |
+
+Nach einem Update von Ladekrone die Seite einmal neu laden, damit der Browser die neue Karte nimmt.
 
 ## Beispiele
 
@@ -142,7 +162,7 @@ Die Entitäts-IDs hängen vom gewählten Namen ab.
 
 - Welche Quelle wie viele Stationen und Preise liefert und welche abonnierten Quellen gerade nichts liefern, zeigt die Datenseite. Eine [Diagnose je Quelle](https://uekala.github.io/ladekrone/v1/diag.json) listet Tarifarten, Preistypen und Beispieldaten.
 
-## Grenzen (Version 0.3)
+## Grenzen (Version 0.4)
 
 - Die Daten werden einmal täglich aufbereitet. Dynamische Preise kommen deshalb mit bis zu einem Tag Verzug an.
 - Nicht alle Ladenetze melden schon an die Mobilithek, und nicht jede gemeldete Säule hat einen Preis. Qwello meldet derzeit weder statisch noch dynamisch Preise.
@@ -184,3 +204,5 @@ pytest
 ## Lizenz
 
 MIT – siehe [LICENSE](LICENSE).
+
+Die Schriften der Karte, Atkinson Hyperlegible und Bricolage Grotesque, stehen unter der SIL Open Font License (`custom_components/ladekrone/frontend/fonts`).
