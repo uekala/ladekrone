@@ -553,7 +553,8 @@ def _point_connectors(point: dict) -> list[str]:
     return sorted(result)
 
 
-def _uses_special_days(rates: list[dict]) -> bool:
+def uses_special_days(rates: list[dict]) -> bool:
+    """True, wenn ein Tarif Sondertage wie Feiertage enthält."""
     return any("sp" in item for rate in rates for item in _iter_dicts(rate))
 
 
@@ -651,7 +652,7 @@ def _station(
         record["a"] = address
     if rates:
         record["r"] = rates
-        if _uses_special_days(rates):
+        if uses_special_days(rates):
             # Feiertage gelten je Bundesland; nur hier nötig, das hält die Kacheln klein.
             state = state_at(lat, lon)
             if state:
