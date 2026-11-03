@@ -85,7 +85,7 @@ Alles lässt sich später über **Konfigurieren** ändern.
 
 Ladekrone bringt eine eigene Karte mit, die aussieht wie die Web-App: der günstigste Preis groß, darunter Ladenetz, Adresse, Leistung und „Route starten“, „Später günstiger“ für die nächsten 24 Stunden und die weiteren Stationen zum Aufklappen. Supercharger erscheinen mit ihrem Ort („Supercharger Willich“), mit dem Hinweis, dass der Preis in der Tesla-App abweichen kann. Hell und dunkel folgen Home Assistant. Mushroom, card-mod oder andere Zusatzkarten sind nicht nötig.
 
-Die Karte wird mit der Integration geladen. Im Dashboard „Karte hinzufügen“ wählen und nach „Ladekrone“ suchen, oder in YAML:
+Die Karte wird mit der Integration geladen. Ladekrone trägt sie dafür auch unter Einstellungen → Dashboards → Ressourcen ein und hält die Version dort aktuell (nicht bei Dashboards im YAML-Modus). Im Dashboard „Karte hinzufügen“ wählen und nach „Ladekrone“ suchen, oder in YAML:
 
 ```yaml
 type: custom:ladekrone-card

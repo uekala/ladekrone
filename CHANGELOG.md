@@ -1,5 +1,9 @@
 # Änderungen
 
+## 0.4.3
+
+- **Karte zusätzlich als Dashboard-Ressource.** Ladekrone trägt die Karte selbst unter Einstellungen → Dashboards → Ressourcen ein und setzt dort nach jedem Update die neue Version. So lädt ein Dashboard die Karte auf demselben Weg wie Karten aus HACS, auch in Handy-Apps. Dashboards im YAML-Modus bleiben unberührt. Doppelte Einträge der Karte werden zusammengefasst.
+
 ## 0.4.2
 
 - **Karte lädt zuverlässig, auch in der Handy-App.** Die Karte meldete sich manchmal an, bevor Home Assistant seine Oberfläche fertig geladen hatte. HA ersetzt dabei die Liste der Bausteine, und das Dashboard zeigte dann „Konfigurationsfehler“ (Custom element doesn't exist: ladekrone-card). Ob das passierte, hing vom Tempo ab, deshalb traf es vor allem Handys. Jetzt wartet die Karte, bis HA bereit ist.
