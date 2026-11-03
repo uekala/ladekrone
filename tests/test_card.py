@@ -17,7 +17,10 @@ def test_card_files_are_shipped() -> None:
         assert (FRONTEND_DIR / "fonts" / font).is_file()
     # Die Karte lädt die Schriften relativ zu ihrer eigenen Adresse.
     script = (FRONTEND_DIR / CARD_FILE).read_text(encoding="utf-8")
-    assert 'customElements.define("ladekrone-card"' in script
+    assert 'registry.define("ladekrone-card"' in script
+    # Erst nach dem Start von HA anmelden, sonst landet die Karte in einer Registry,
+    # die HA beim Start ersetzt.
+    assert "whenDefined(host.localName)" in script
     assert "fonts/bricolage.woff2" in script
 
 

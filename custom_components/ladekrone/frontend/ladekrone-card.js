@@ -394,8 +394,22 @@ class LadekroneCard extends HTMLElement {
   }
 }
 
-if (!customElements.get("ladekrone-card")) {
-  customElements.define("ladekrone-card", LadekroneCard);
+// Anmelden erst, wenn die Oberfläche von Home Assistant steht: HA ersetzt beim Start die
+// Element-Registry. Eine vorher angemeldete Karte kennt HA danach nicht („Custom element
+// doesn't exist“). Ohne HA-Seite (z. B. eine Testseite) sofort anmelden.
+function register() {
+  const registry = window.customElements;
+  if (!registry.get("ladekrone-card")) registry.define("ladekrone-card", LadekroneCard);
+}
+
+const host = document.querySelector("home-assistant, hc-main");
+if (host) {
+  customElements.whenDefined(host.localName).then(register);
+} else {
+  register();
+}
+
+if (!(window.customCards || []).some((card) => card.type === "ladekrone-card")) {
   window.customCards = window.customCards || [];
   window.customCards.push({
     type: "ladekrone-card",
