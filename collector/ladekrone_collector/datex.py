@@ -19,6 +19,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from .operators import operator_id
+from .regions import state_at, state_from_code
 
 PUBLICATION_KEY = "aegiEnergyInfrastructureTablePublication"
 STATUS_KEY = "aegiEnergyInfrastructureStatusPublication"
@@ -283,11 +284,61 @@ def _period(period: Any) -> dict | None:
             start if isinstance(start, str) else None,
             end if isinstance(end, str) else None,
         ]
-    if period.get("recurringSpecialDay"):
-        # Feiertage lassen sich ohne Kalender nicht auswerten; Kennzeichen setzen,
-        # damit die Integration solche Perioden nicht fälschlich als "immer" liest.
-        result["sp"] = True
+    special = [s for s in map(_special_day, _as_list(period.get("recurringSpecialDay"))) if s]
+    if special:
+        result["sp"] = special
     return result
+
+
+AREA_KEYS = {"country", "subdivisionCode", "nutsCode", "areaName"}
+
+
+def _area_state(areas: Any) -> str | None:
+    """Bundesland aus ``namedArea``; ``-`` für ein Gebiet außerhalb Deutschlands."""
+    for holder in _as_list(areas):
+        if not isinstance(holder, dict):
+            continue
+        if AREA_KEYS & holder.keys():
+            area = holder  # Gebiet direkt, ohne Hülle wie ``locIsoNamedArea``
+        else:
+            area = next((v for v in holder.values() if isinstance(v, dict)), {})
+        country = area.get("country")
+        if isinstance(country, dict):
+            country = _enum(country)
+        if isinstance(country, str) and country.strip() and country.strip().upper() != "DE":
+            return "-"
+        for raw in (area.get("subdivisionCode"), area.get("nutsCode"), _text(area.get("areaName"))):
+            state = state_from_code(raw if isinstance(raw, str) else _enum(raw))
+            if state:
+                return state
+    return None
+
+
+def _special_day(holder: Any) -> dict | None:
+    """Sondertag (``SpecialDayG``) kompakt: ``k`` Art, ``x`` Schnittmenge, ``r``, ``n``.
+
+    ``x`` steht für ``intersectWithApplicableDays``: Dann gilt die Periode nur an
+    Sondertagen, die auch auf die angegebenen Wochentage fallen. Ohne ``x`` kommen
+    die Sondertage zu den Wochentagen hinzu.
+    """
+    if not isinstance(holder, dict):
+        return None
+    day = holder.get("comPublicHoliday") or holder.get("comSpecialDay") or holder
+    if not isinstance(day, dict):
+        return None
+    kind = _enum(day.get("specialDayType"))
+    if not kind:
+        return None
+    entry: dict[str, Any] = {"k": kind}
+    if day.get("intersectWithApplicableDays") is True:
+        entry["x"] = True
+    region = _area_state(day.get("namedArea"))
+    if region:
+        entry["r"] = region
+    name = _text(day.get("publicHolidayName"))
+    if name:
+        entry["n"] = name
+    return entry
 
 
 def _validity(overall: Any) -> dict | None:
@@ -502,6 +553,10 @@ def _point_connectors(point: dict) -> list[str]:
     return sorted(result)
 
 
+def _uses_special_days(rates: list[dict]) -> bool:
+    return any("sp" in item for rate in rates for item in _iter_dicts(rate))
+
+
 def _rate_key(rate: dict) -> str:
     return hashlib.sha1(json.dumps(rate, sort_keys=True, ensure_ascii=False).encode()).hexdigest()[
         :12
@@ -596,6 +651,11 @@ def _station(
         record["a"] = address
     if rates:
         record["r"] = rates
+        if _uses_special_days(rates):
+            # Feiertage gelten je Bundesland; nur hier nötig, das hält die Kacheln klein.
+            state = state_at(lat, lon)
+            if state:
+                record["bl"] = state
     if isinstance(station.get("lastUpdated"), str):
         record["u"] = station["lastUpdated"]
     return record, evse_ids
@@ -643,11 +703,11 @@ def parse_document(
 
 
 def load_document(raw: bytes) -> Any:
-    """Liest rohe Nutzdaten als JSON. Unterstützt derzeit DATEX II v3 als JSON."""
+    """Liest rohe Nutzdaten als DATEX II v3 JSON (laut Mobilithek-Leitfaden für AFIR)."""
     text = raw.decode("utf-8-sig", errors="replace").lstrip()
     if text.startswith("<"):
         raise UnsupportedFormatError(
-            "XML-Nutzdaten werden noch nicht unterstützt (nur DATEX II v3 JSON)"
+            "XML-Nutzdaten werden nicht gelesen; AFIR-Angebote sind als DATEX II v3 JSON vorgesehen"
         )
     try:
         return json.loads(text)
@@ -656,7 +716,7 @@ def load_document(raw: bytes) -> Any:
 
 
 def parse_bytes(raw: bytes, source: str) -> list[tuple[dict, set[str]]]:
-    """Parst rohe Nutzdaten. Unterstützt derzeit DATEX II v3 als JSON."""
+    """Parst rohe Nutzdaten (DATEX II v3 JSON)."""
     return parse_document(load_document(raw), source)
 
 
@@ -691,6 +751,7 @@ def diagnose(document: Any) -> dict[str, Any]:
     """
     policies: dict[str, int] = {}
     price_types: dict[str, int] = {}
+    special_days: dict[str, int] = {}
     rate_sample: dict | None = None
     energy_sample: Any = None
     site_sample: Any = None
@@ -706,6 +767,12 @@ def diagnose(document: Any) -> dict[str, Any]:
                     price_types[kind] = price_types.get(kind, 0) + 1
             if rate_sample is None:
                 rate_sample = item
+            # Sondertage nur in Tarifen zählen, nicht in Öffnungszeiten
+            for inner in _iter_dicts(item):
+                for holder in _as_list(inner.get("recurringSpecialDay")):
+                    entry = _special_day(holder)
+                    kind = entry["k"] if entry else "–"
+                    special_days[kind] = special_days.get(kind, 0) + 1
         if site_sample is None and "energyInfrastructureStation" in item:
             site_sample = {k: v for k, v in item.items() if k != "energyInfrastructureStation"}
             stations = _as_list(item.get("energyInfrastructureStation"))
@@ -725,6 +792,7 @@ def diagnose(document: Any) -> dict[str, Any]:
         "points": points,
         "rate_policies": policies,
         "price_types": price_types,
+        "special_days": special_days,
         "rate_sample": _compact(rate_sample) if rate_sample is not None else None,
         "point_sample": _compact(energy_sample) if energy_sample is not None else None,
         "site_sample": _compact(site_sample) if site_sample is not None else None,

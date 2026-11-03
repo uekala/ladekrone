@@ -12,6 +12,7 @@ Seit der EU-Verordnung AFIR müssen alle Ladenetze Standorte, Leistung und Ad-ho
 
 - **Günstigster Preis** im Umkreis als Sensor (€/kWh), mit Ladenetz, Adresse, Entfernung, Leistung, Blockiergebühr und den fünf günstigsten Alternativen
 - **Tageszeitpreise** werden berücksichtigt, z. B. der günstigere Nachttarif an Superchargern. Zu jedem Angebot steht, **bis wann** der Preis gilt und was danach kommt
+- **Feiertagstarife** werden nach den Feiertagen des Bundeslands der Station ausgewertet, z. B. Fronleichnam in NRW, aber nicht in Niedersachsen
 - **Günstigster Preis in den nächsten 24 Stunden** als eigener Sensor, mit Zeitfenster („ab 23:00 in Moers für 0,39 €“)
 - **Suche, die mitfährt**: Der Mittelpunkt kann einer Entität folgen, z. B. dem Auto oder einer Person
 - **Filter** nach Mindestleistung, AC/DC, Stecker und Ladenetz
@@ -157,18 +158,20 @@ Die Entitäts-IDs hängen vom gewählten Namen ab.
 - Grundlage sind die AFIR-Datenangebote der Ladenetze in der Mobilithek (DATEX II v3): statische Angebote und, wo abonniert, die dynamischen Preisaktualisierungen.
 - Verarbeitet werden nur Angebote mit offener Lizenz (CC0, CC BY 4.0, DL-DE). Die genutzten Quellen und Namensnennungen stehen auf der [Datenseite](https://uekala.github.io/ladekrone/) und im Attribut `attribution` des Preissensors.
 - Die Daten werden aufbereitet: Nettopreise in Bruttopreise umgerechnet, Ladepunkte gruppiert, nach Kacheln aufgeteilt.
+- Stationen mit Feiertagstarif bekommen ihr Bundesland. Die Landesgrenzen dafür stammen aus [Natural Earth](https://www.naturalearthdata.com/) (gemeinfrei).
 - **Ad-hoc-Preise** sind die Preise ohne Vertrag. Mit Ladekarte oder App kann es günstiger oder teurer sein.
 - Alle Angaben ohne Gewähr.
 
-- Welche Quelle wie viele Stationen und Preise liefert und welche abonnierten Quellen gerade nichts liefern, zeigt die Datenseite. Eine [Diagnose je Quelle](https://uekala.github.io/ladekrone/v1/diag.json) listet Tarifarten, Preistypen und Beispieldaten.
+- Welche Quelle wie viele Stationen und Preise liefert und welche abonnierten Quellen gerade nichts liefern, zeigt die Datenseite. Eine [Diagnose je Quelle](https://uekala.github.io/ladekrone/v1/diag.json) listet Tarifarten, Preistypen, Sondertage wie Feiertage (`special_days`) und Beispieldaten.
 
-## Grenzen (Version 0.4)
+## Grenzen (Version 0.5)
 
 - Die Daten werden einmal täglich aufbereitet. Dynamische Preise kommen deshalb mit bis zu einem Tag Verzug an.
 - Nicht alle Ladenetze melden schon an die Mobilithek, und nicht jede gemeldete Säule hat einen Preis. Qwello meldet derzeit weder statisch noch dynamisch Preise.
 - Nur Deutschland.
-- Angebote im XML-Format werden noch nicht gelesen, nur DATEX II v3 als JSON.
-- Feiertagsregeln in Tarifen werden nicht ausgewertet.
+- Gelesen wird DATEX II v3 als JSON. Das schreibt der Leitfaden der Mobilithek für AFIR-Angebote vor; alle abonnierten Angebote liefern es.
+- Feiertage gelten je Bundesland. Feiertage einzelner Gemeinden (Mariä Himmelfahrt in Teilen Bayerns, Fronleichnam in Teilen Sachsens und Thüringens, Augsburger Friedensfest) zählen nicht. An einer Landesgrenze kann eine Station dem Nachbarland zugeordnet sein.
+- Ferien, Schultage und Veranstaltungstage als Sondertage lassen sich nicht bestimmen und gelten als nicht zutreffend.
 
 ## Datenquelle selbst betreiben
 

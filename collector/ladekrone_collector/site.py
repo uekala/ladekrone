@@ -152,7 +152,7 @@ def _waiting(sources: list[dict[str, Any]], diagnostics: dict[str, dict[str, Any
         if diag.get("error"):
             reason = "hat noch keine Daten geliefert"
             if "XML" in diag["error"]:
-                reason = "liefert ein Format, das Ladekrone noch nicht liest"
+                reason = "liefert XML statt des vorgesehenen JSON"
             items.append(f"<li><strong>{name}</strong> {reason}</li>")
             seen.add(key)
     for source in sources:
