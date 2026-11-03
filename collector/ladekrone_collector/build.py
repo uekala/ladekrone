@@ -21,6 +21,7 @@ from .datex import (
     parse_document,
     parse_status,
     rate_ids,
+    uses_special_days,
 )
 from .mobilithek import FetchError, build_ssl_context, fetch_subscription
 from .operators import build_operator_names, resolve_operator_ids
@@ -232,7 +233,8 @@ def run(args: argparse.Namespace) -> int:
         diagnostics[key] = {"name": source["name"], "stations": len(records), **diagnose(document)}
         if dynamic is not None:
             diagnostics[key]["dynamic"] = dynamic
-        _LOGGER.info("%s: %d Stationen gelesen", key, len(records))
+        holidays = sum(1 for record, _evse in records if uses_special_days(record.get("r", [])))
+        _LOGGER.info("%s: %d Stationen gelesen, %d mit Feiertagsregel", key, len(records), holidays)
         parsed.append((source, records))
         used_sources.append(source)
 
