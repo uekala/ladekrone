@@ -1,5 +1,9 @@
 # Änderungen
 
+## 0.4.2
+
+- **Karte lädt zuverlässig, auch in der Handy-App.** Die Karte meldete sich manchmal an, bevor Home Assistant seine Oberfläche fertig geladen hatte. HA ersetzt dabei die Liste der Bausteine, und das Dashboard zeigte dann „Konfigurationsfehler“ (Custom element doesn't exist: ladekrone-card). Ob das passierte, hing vom Tempo ab, deshalb traf es vor allem Handys. Jetzt wartet die Karte, bis HA bereit ist.
+
 ## 0.4.1
 
 - **Karte: Supercharger mit Ort.** Statt „Tesla, Inc.“ steht „Supercharger Willich“, in der Liste dann die Straße. Zeigt die Karte Supercharger-Preise, weist sie darauf hin, dass der Preis in der Tesla-App abweichen kann.
