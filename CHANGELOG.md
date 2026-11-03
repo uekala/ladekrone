@@ -1,5 +1,11 @@
 # Änderungen
 
+## 0.5.0
+
+- **Feiertagstarife.** Tarife, die an Feiertagen anders gelten (DATEX II `recurringSpecialDay`), werden jetzt ausgewertet, in der Integration, in der Karte und in der Web-App. Es zählen die gesetzlichen Feiertage des Bundeslands, in dem die Station steht, dazu „Tag vor“ und „Tag nach einem Feiertag“. Bisher galt eine Feiertagsregel nie, ein Feiertagspreis wurde also nie angezeigt und ein Werktagspreis auch an Feiertagen.
+- Der Datensammler ordnet Stationen mit Feiertagstarif einem Bundesland zu (Landesgrenzen aus Natural Earth, gemeinfrei) und zählt in der Diagnose je Quelle, welche Sondertage in den Tarifen vorkommen (`special_days`).
+- README: Der Hinweis zu XML-Angeboten ist korrigiert. Die Mobilithek sieht für AFIR-Angebote JSON vor, und alle abonnierten Angebote liefern es.
+
 ## 0.4.3
 
 - **Karte zusätzlich als Dashboard-Ressource.** Ladekrone trägt die Karte selbst unter Einstellungen → Dashboards → Ressourcen ein und setzt dort nach jedem Update die neue Version. So lädt ein Dashboard die Karte auf demselben Weg wie Karten aus HACS, auch in Handy-Apps. Dashboards im YAML-Modus bleiben unberührt. Doppelte Einträge der Karte werden zusammengefasst.

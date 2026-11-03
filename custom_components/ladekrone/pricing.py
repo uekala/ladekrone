@@ -1,7 +1,8 @@
 """Preislogik: Zeitfenster auswerten und günstigste Ladepunkte finden.
 
 Reines Python ohne Home-Assistant-Abhängigkeiten, damit es sich gut testen lässt.
-Alle Uhrzeiten aus den Daten sind Ortszeit (Europe/Berlin).
+Alle Uhrzeiten aus den Daten sind Ortszeit (Europe/Berlin). Feiertage zählen nach
+dem Bundesland der Station (``bl``), ohne Bundesland nur die bundesweiten.
 """
 
 from __future__ import annotations
@@ -13,6 +14,8 @@ from datetime import UTC, datetime, time, timedelta
 from functools import lru_cache
 from typing import Any
 from zoneinfo import ZoneInfo
+
+from .holidays import holiday_name, is_special_day
 
 LOCAL_TZ = ZoneInfo("Europe/Berlin")
 EARTH_RADIUS_KM = 6371.0088
@@ -154,11 +157,53 @@ def _parse_dt(value: Any) -> datetime | None:
     return parsed
 
 
-def period_matches(period: dict, local: datetime) -> bool:
-    """Alle angegebenen Kriterien einer Periode müssen zutreffen."""
-    if period.get("sp"):
-        # Sondertage (z. B. Feiertage) lassen sich nicht auswerten.
+def _letters(text: str) -> str:
+    return "".join(ch for ch in text.casefold() if ch.isalnum())
+
+
+def _special_matches(entry: dict, local: datetime, state: str | None) -> bool:
+    """Ein Sondertag aus ``sp``: ``k`` Art, ``r`` Bundesland, ``n`` Name des Feiertags."""
+    region = entry.get("r") or state
+    if region == "-":  # Gebiet außerhalb Deutschlands
         return False
+    if not is_special_day(entry.get("k"), local.date(), region):
+        return False
+    wanted = entry.get("n")
+    if not wanted:
+        return True
+    # Ein bestimmter Feiertag: nur bei eindeutig gleichem Namen
+    name = holiday_name(local.date(), region) or ""
+    a, b = _letters(wanted), _letters(name)
+    return bool(a and b) and (a in b or b in a)
+
+
+def _day_matches(period: dict, local: datetime, state: str | None) -> bool:
+    """Wochentage und Sondertage einer Periode.
+
+    Mit ``intersectWithApplicableDays`` (``x``) gilt die Periode nur an Sondertagen,
+    die auf die angegebenen Wochentage fallen; ohne kommen die Sondertage zu den
+    Wochentagen hinzu. Sondertage, die sich nicht bestimmen lassen (Ferien,
+    Veranstaltungen), treffen nie zu.
+    """
+    days = period.get("d")
+    matched: bool | None = (local.weekday() in days) if days else None
+    raw = period.get("sp")
+    special = [e for e in raw if isinstance(e, dict)] if isinstance(raw, list) else []
+    if raw and not special:
+        special = [{}]  # nur als vorhanden gekennzeichnet, Art unbekannt
+    unions = [e for e in special if not e.get("x")]
+    intersections = [e for e in special if e.get("x")]
+    if unions:
+        matched = bool(matched) or any(_special_matches(e, local, state) for e in unions)
+    if intersections:
+        matched = matched is not False and all(
+            _special_matches(e, local, state) for e in intersections
+        )
+    return matched is not False
+
+
+def period_matches(period: dict, local: datetime, state: str | None = None) -> bool:
+    """Alle angegebenen Kriterien einer Periode müssen zutreffen."""
     absolute = period.get("a")
     if absolute:
         start, end = _parse_dt(absolute[0]), _parse_dt(absolute[1])
@@ -166,7 +211,7 @@ def period_matches(period: dict, local: datetime) -> bool:
             return False
         if end and local >= end:
             return False
-    if (days := period.get("d")) and local.weekday() not in days:
+    if not _day_matches(period, local, state):
         return False
     if (months := period.get("m")) and local.month not in months:
         return False
@@ -184,7 +229,7 @@ def period_matches(period: dict, local: datetime) -> bool:
     return True
 
 
-def validity_matches(validity: dict | None, local: datetime) -> bool:
+def validity_matches(validity: dict | None, local: datetime, state: str | None = None) -> bool:
     if not validity:
         return True
     start, end = _parse_dt(validity.get("s")), _parse_dt(validity.get("e"))
@@ -193,9 +238,9 @@ def validity_matches(validity: dict | None, local: datetime) -> bool:
     if end and local > end:
         return False
     valid = validity.get("in")
-    if valid and not any(period_matches(p, local) for p in valid):
+    if valid and not any(period_matches(p, local, state) for p in valid):
         return False
-    return not any(period_matches(p, local) for p in validity.get("ex") or [])
+    return not any(period_matches(p, local, state) for p in validity.get("ex") or [])
 
 
 def _restricted(component: dict) -> bool:
@@ -203,16 +248,16 @@ def _restricted(component: dict) -> bool:
     return bool(validity.get("in") or validity.get("ex"))
 
 
-def current_price(rate: dict, local: datetime) -> Price | None:
+def current_price(rate: dict, local: datetime, state: str | None = None) -> Price | None:
     """Ermittelt den zum Zeitpunkt gültigen Preis eines Ad-hoc-Tarifs.
 
     Mehrere kWh-Preise werden über ihre Zeitfenster aufgelöst. Greifen
     mehrere gleichzeitig, gewinnt der zeitlich eingeschränkte und davon der
     höhere – lieber etwas zu teuer anzeigen als zu günstig.
     """
-    if rate.get("cur", "EUR") != "EUR" or not validity_matches(rate.get("w"), local):
+    if rate.get("cur", "EUR") != "EUR" or not validity_matches(rate.get("w"), local, state):
         return None
-    active = [c for c in rate.get("p", []) if validity_matches(c.get("w"), local)]
+    active = [c for c in rate.get("p", []) if validity_matches(c.get("w"), local, state)]
 
     kwh = [c for c in active if c["t"] == "kwh" and not (c.get("f") or 0)]
     if not kwh:
@@ -322,6 +367,7 @@ def best_offer(
     if not _operator_matches(station, filters):
         return None
     rates = station.get("r") or []
+    state = station.get("bl")
     best: tuple[Price, dict] | None = None
     for group in station.get("g", []):
         if not _group_matches(group, filters):
@@ -329,7 +375,7 @@ def best_offer(
         for index in group.get("r", []):
             if not 0 <= index < len(rates):
                 continue
-            price = current_price(rates[index], local)
+            price = current_price(rates[index], local, state)
             if price is None:
                 continue
             if (

@@ -107,6 +107,101 @@ export function tilesForRadius(lat, lon, radiusKm, tileDeg) {
 }
 
 // --------------------------------------------------------------------------
+// Feiertage: Übertragung von custom_components/ladekrone/holidays.py
+// --------------------------------------------------------------------------
+
+// [Monat, Tag, Name, Bundesländer oder null für bundesweit, ab Jahr]
+const FIXED_HOLIDAYS = [
+  [1, 1, "Neujahr", null, 0],
+  [1, 6, "Heilige Drei Könige", ["BW", "BY", "ST"], 0],
+  [3, 8, "Internationaler Frauentag", ["BE"], 2019],
+  [3, 8, "Internationaler Frauentag", ["MV"], 2023],
+  [5, 1, "Tag der Arbeit", null, 0],
+  [8, 15, "Mariä Himmelfahrt", ["SL"], 0],
+  [9, 20, "Weltkindertag", ["TH"], 2019],
+  [10, 3, "Tag der Deutschen Einheit", null, 1990],
+  [10, 31, "Reformationstag", ["BB", "MV", "SN", "ST", "TH"], 0],
+  [10, 31, "Reformationstag", ["HB", "HH", "NI", "SH"], 2018],
+  [11, 1, "Allerheiligen", ["BW", "BY", "NW", "RP", "SL"], 0],
+  [12, 25, "1. Weihnachtstag", null, 0],
+  [12, 26, "2. Weihnachtstag", null, 0],
+];
+// [Tage nach Ostersonntag, Name, Bundesländer oder null für bundesweit]
+const EASTER_HOLIDAYS = [
+  [-2, "Karfreitag", null],
+  [0, "Ostersonntag", ["BB", "HE"]],
+  [1, "Ostermontag", null],
+  [39, "Christi Himmelfahrt", null],
+  [49, "Pfingstsonntag", ["BB", "HE"]],
+  [50, "Pfingstmontag", null],
+  [60, "Fronleichnam", ["BW", "BY", "HE", "NW", "RP", "SL"]],
+];
+
+const dayKey = (y, m, d) => y * 10000 + m * 100 + d;
+
+function shiftDay(y, m, d, days) {
+  const t = new Date(Date.UTC(y, m - 1, d + days));
+  return [t.getUTCFullYear(), t.getUTCMonth() + 1, t.getUTCDate()];
+}
+
+/** Ostersonntag als [Monat, Tag] (gregorianisch, anonymer Algorithmus). */
+export function easterSunday(year) {
+  const a = year % 19;
+  const b = Math.floor(year / 100);
+  const c = year % 100;
+  const d = Math.floor(b / 4);
+  const e = b % 4;
+  const f = Math.floor((b + 8) / 25);
+  const g = Math.floor((b - f + 1) / 3);
+  const h = (19 * a + b - d - g + 15) % 30;
+  const i = Math.floor(c / 4);
+  const k = c % 4;
+  const m = (32 + 2 * e + 2 * i - h - k) % 7;
+  const n = Math.floor((a + 11 * h + 22 * m) / 451);
+  const total = h + m - 7 * n + 114;
+  return [Math.floor(total / 31), (total % 31) + 1];
+}
+
+const applies = (states, state) => states === null || (state != null && states.includes(state));
+const holidayCache = new Map();
+
+/** Feiertage eines Jahres als Map dayKey -> Name; ohne Bundesland nur die bundesweiten. */
+export function holidays(year, state = null) {
+  const cacheKey = `${year}:${state ?? ""}`;
+  const cached = holidayCache.get(cacheKey);
+  if (cached) return cached;
+  const result = new Map();
+  for (const [month, day, name, states, since] of FIXED_HOLIDAYS) {
+    if (year >= since && applies(states, state)) result.set(dayKey(year, month, day), name);
+  }
+  const [em, ed] = easterSunday(year);
+  for (const [offset, name, states] of EASTER_HOLIDAYS) {
+    if (applies(states, state)) result.set(dayKey(...shiftDay(year, em, ed, offset)), name);
+  }
+  if (state === "SN") {
+    // Buß- und Bettag: Mittwoch vor dem 23. November
+    const weekday = (new Date(Date.UTC(year, 10, 22)).getUTCDay() + 6) % 7;
+    result.set(dayKey(...shiftDay(year, 11, 22, -((((weekday - 2) % 7) + 7) % 7))), "Buß- und Bettag");
+  }
+  holidayCache.set(cacheKey, result);
+  return result;
+}
+
+const isHoliday = (y, m, d, state) => holidays(y, state).has(dayKey(y, m, d));
+
+export function holidayName(y, m, d, state = null) {
+  return holidays(y, state).get(dayKey(y, m, d)) ?? null;
+}
+
+/** Trifft ein DATEX-II-Sondertag (specialDayType) zu? Wie is_special_day. */
+export function isSpecialDay(kind, y, m, d, state = null) {
+  if (kind === "publicHoliday") return isHoliday(y, m, d, state);
+  if (kind === "dayBeforePublicHoliday") return isHoliday(...shiftDay(y, m, d, 1), state);
+  if (kind === "dayFollowingPublicHoliday") return isHoliday(...shiftDay(y, m, d, -1), state);
+  return false;
+}
+
+// --------------------------------------------------------------------------
 // Zeitliche Gültigkeit
 // --------------------------------------------------------------------------
 
@@ -129,8 +224,35 @@ function inWindow(now, start, end) {
 
 const filled = (list) => Array.isArray(list) && list.length > 0;
 
-export function periodMatches(period, local) {
-  if (period.sp) return false; // Sondertage (z. B. Feiertage) lassen sich nicht auswerten
+const letters = (text) => text.toLowerCase().replace(/ß/g, "ss").replace(/[^\p{L}\p{N}]/gu, "");
+
+function specialMatches(entry, local, state) {
+  const region = entry.r || state;
+  if (region === "-") return false; // Gebiet außerhalb Deutschlands
+  if (!isSpecialDay(entry.k, local.year, local.month, local.day, region)) return false;
+  if (!entry.n) return true;
+  // Ein bestimmter Feiertag: nur bei eindeutig gleichem Namen
+  const a = letters(entry.n);
+  const b = letters(holidayName(local.year, local.month, local.day, region) || "");
+  return Boolean(a && b) && (a.includes(b) || b.includes(a));
+}
+
+/** Wochentage und Sondertage einer Periode, wie _day_matches. */
+function dayMatches(period, local, state) {
+  let matched = filled(period.d) ? period.d.includes(local.weekday) : null;
+  const raw = period.sp;
+  let special = Array.isArray(raw) ? raw.filter((e) => e && typeof e === "object") : [];
+  if (raw && (!Array.isArray(raw) || raw.length) && !special.length) special = [{}];
+  const unions = special.filter((e) => !e.x);
+  const intersections = special.filter((e) => e.x);
+  if (unions.length) matched = Boolean(matched) || unions.some((e) => specialMatches(e, local, state));
+  if (intersections.length) {
+    matched = matched !== false && intersections.every((e) => specialMatches(e, local, state));
+  }
+  return matched !== false;
+}
+
+export function periodMatches(period, local, state = null) {
   const absolute = period.a;
   if (filled(absolute)) {
     const start = parseDt(absolute[0]);
@@ -138,7 +260,7 @@ export function periodMatches(period, local) {
     if (start !== null && local.t < start) return false;
     if (end !== null && local.t >= end) return false;
   }
-  if (filled(period.d) && !period.d.includes(local.weekday)) return false;
+  if (!dayMatches(period, local, state)) return false;
   if (filled(period.m) && !period.m.includes(local.month)) return false;
   if (filled(period.t)) {
     const matched = period.t.some(([startRaw, endRaw]) => {
@@ -151,14 +273,14 @@ export function periodMatches(period, local) {
   return true;
 }
 
-export function validityMatches(validity, local) {
+export function validityMatches(validity, local, state = null) {
   if (!validity || Object.keys(validity).length === 0) return true;
   const start = parseDt(validity.s);
   const end = parseDt(validity.e);
   if (start !== null && local.t < start) return false;
   if (end !== null && local.t > end) return false;
-  if (filled(validity.in) && !validity.in.some((p) => periodMatches(p, local))) return false;
-  return !(validity.ex || []).some((p) => periodMatches(p, local));
+  if (filled(validity.in) && !validity.in.some((p) => periodMatches(p, local, state))) return false;
+  return !(validity.ex || []).some((p) => periodMatches(p, local, state));
 }
 
 const restricted = (c) => {
@@ -167,10 +289,10 @@ const restricted = (c) => {
 };
 
 /** Zum Zeitpunkt gültiger Ad-hoc-Preis eines Tarifs (wie current_price). */
-export function currentPrice(rate, local) {
+export function currentPrice(rate, local, state = null) {
   const currency = "cur" in rate ? rate.cur : "EUR";
-  if (currency !== "EUR" || !validityMatches(rate.w, local)) return null;
-  const active = (rate.p || []).filter((c) => validityMatches(c.w, local));
+  if (currency !== "EUR" || !validityMatches(rate.w, local, state)) return null;
+  const active = (rate.p || []).filter((c) => validityMatches(c.w, local, state));
   let kwh = active.filter((c) => c.t === "kwh" && !(c.f || 0));
   if (!kwh.length) kwh = active.filter((c) => c.t === "kwh");
   const free = active.some((c) => c.t === "free");
@@ -230,12 +352,13 @@ export function normalizeFilters(filters = {}) {
 export function bestOffer(station, lat, lon, filters, local) {
   if (!operatorMatches(station, filters.operators)) return null;
   const rates = station.r || [];
+  const state = station.bl ?? null;
   let best = null;
   for (const group of station.g || []) {
     if (!groupMatches(group, filters)) continue;
     for (const index of group.r || []) {
       if (!(index >= 0 && index < rates.length)) continue;
-      const price = currentPrice(rates[index], local);
+      const price = currentPrice(rates[index], local, state);
       if (price === null) continue;
       if (
         best === null ||

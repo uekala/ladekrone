@@ -160,6 +160,82 @@ def _synthetic() -> list[dict]:
             o="Tesla",
         ),
         _station("broken", 0.001, [{**DC, "r": [5]}], [{"p": [{"t": "kwh", "v": 0.1}]}]),
+        *_holiday_stations(),
+    ]
+
+
+HOLIDAY = [{"k": "publicHoliday"}]
+
+
+def _two_prices(special: dict, low: float, high: float) -> list[dict]:
+    return [{"p": [{"t": "kwh", "v": high}, {"t": "kwh", "v": low, "w": {"in": [special]}}]}]
+
+
+def _holiday_stations() -> list[dict]:
+    """Feiertagstarife in mehreren Bundesländern, teils mit Uhrzeit."""
+    return [
+        _station(
+            "hol-except-nw",
+            0.004,
+            [DC],
+            [
+                {
+                    "p": [
+                        {"t": "kwh", "v": 0.49, "w": {"ex": [{"sp": HOLIDAY}]}},
+                        {"t": "kwh", "v": 0.28, "w": {"in": [{"sp": HOLIDAY}]}},
+                    ]
+                }
+            ],
+            bl="NW",
+        ),
+        _station(
+            "hol-weekend-night-ni",
+            -0.004,
+            [DC],
+            _two_prices({"d": [5, 6], "sp": HOLIDAY, "t": [["20:00", "06:00"]]}, 0.31, 0.58),
+            bl="NI",
+        ),
+        _station(
+            "hol-workday-sn",
+            0.006,
+            [DC],
+            _two_prices(
+                {"d": [0, 1, 2, 3, 4], "sp": [{"k": "publicHoliday", "x": True}]}, 0.27, 0.6
+            ),
+            bl="SN",
+        ),
+        _station(
+            "hol-before",
+            -0.006,
+            [AC],
+            _two_prices({"sp": [{"k": "dayBeforePublicHoliday"}]}, 0.26, 0.62),
+        ),
+        _station(
+            "hol-named-nw",
+            0.007,
+            [DC],
+            _two_prices({"sp": [{"k": "publicHoliday", "n": "Allerheiligen"}]}, 0.21, 0.66),
+            bl="NW",
+        ),
+        _station(
+            "hol-region",
+            -0.007,
+            [DC],
+            _two_prices({"sp": [{"k": "publicHoliday", "r": "BY"}]}, 0.23, 0.64),
+            bl="HE",
+        ),
+        _station(
+            "hol-foreign",
+            0.008,
+            [DC],
+            _two_prices({"sp": [{"k": "publicHoliday", "r": "-"}]}, 0.1, 0.7),
+        ),
+        _station(
+            "hol-school",
+            -0.009,
+            [DC],
+            _two_prices({"d": [6], "sp": [{"k": "schoolHolidays"}]}, 0.22, 0.68),
+        ),
     ]
 
 
@@ -210,7 +286,11 @@ MOMENTS = [
     datetime(2026, 3, 28, 22, 0, tzinfo=UTC),  # vor der Sommerzeit
     datetime(2026, 3, 29, 0, 40, tzinfo=UTC),  # mitten in der Umstellung
     datetime(2026, 10, 30, 21, 7, 31, tzinfo=UTC),  # Freitagabend
-    datetime(2026, 10, 31, 5, 0, tzinfo=UTC),
+    datetime(2026, 10, 31, 5, 0, tzinfo=UTC),  # Reformationstag, Allerheiligen folgt
+    datetime(2026, 6, 3, 21, 50, tzinfo=UTC),  # kurz vor Fronleichnam
+    datetime(2026, 11, 17, 10, 0, tzinfo=UTC),  # vor dem Buß- und Bettag
+    datetime(2026, 12, 24, 15, 0, tzinfo=UTC),  # Heiligabend, Weihnachten folgt
+    datetime(2026, 12, 31, 22, 40, tzinfo=UTC),  # Silvester, Neujahr folgt
 ]
 FILTERS = [
     {},
