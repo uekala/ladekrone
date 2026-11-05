@@ -43,6 +43,7 @@ async def test_user_flow_creates_entry(hass: HomeAssistant) -> None:
         "current_type": "dc",
         "connector": "ccs",
         "operators": "Tesla",
+        "tariff": "adhoc",
     }
 
 
