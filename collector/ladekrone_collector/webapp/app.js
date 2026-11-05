@@ -227,7 +227,7 @@ function renderWinner(offer) {
   const fees = feeText(offer.price);
   return `<article class="winner" aria-labelledby="winner-price">
     <p class="label"><img src="icons/icon-192.png" alt="">Gerade am günstigsten</p>
-    <p class="price" id="winner-price"><span class="num">${euro.format(offer.price.kwh)}</span><span class="unit">€/kWh</span></p>
+    <p class="price" id="winner-price"><span class="num">${euro.format(offer.price.kwh)}</span><span class="unit">€/kWh</span></p>\n    <p class="price-note"><strong>Ad-hoc-Preis · ohne Vertrag</strong> – dein Preis mit Ladekarte oder Abo kann abweichen.</p>
     <p class="who">${esc(offer.operator || "Unbekanntes Ladenetz")}</p>
     <p class="addr">${esc([street, city].filter(Boolean).join(", "))}</p>
     <ul class="facts">${facts(offer).map((f) => `<li>${esc(f)}</li>`).join("")}</ul>
