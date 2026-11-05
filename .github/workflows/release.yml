@@ -14,6 +14,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+      - name: Check manifest, changelog and tag versions
+        run: python3 tools/check_versions.py
       - name: Version bestimmen
         id: version
         run: |
@@ -29,7 +31,7 @@ jobs:
       - name: Release-Notizen aus CHANGELOG.md
         run: |
           awk -v v="## ${{ steps.version.outputs.version }}" '$0==v{f=1;next} /^## /{f=0} f' CHANGELOG.md > notes.md
-          test -s notes.md || echo "Version ${{ steps.version.outputs.version }}" > notes.md
+          test -s notes.md || { echo "::error::Kein Changelog-Eintrag für Version ${{ steps.version.outputs.version }}"; exit 1; }
       - name: Release erstellen
         env:
           GH_TOKEN: ${{ github.token }}
