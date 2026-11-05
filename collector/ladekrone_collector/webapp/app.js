@@ -39,7 +39,7 @@ const state = {
   meta: null,
   tiles: new Map(),
   place: null, // {lat, lon, label, gps}
-  filters: { power: 0, radius: 10, operator: "", connector: "any", ...store.get("filters", {}) },
+  filters: { power: 0, radius: 10, operator: "", connector: "any", tariff: "adhoc", ...store.get("filters", {}) },
   quarter: null,
   offline: false,
 };
@@ -222,12 +222,22 @@ function nearestCity(index, lat, lon) {
 // Anzeige
 // ---------------------------------------------------------------------------
 
+function priceNote(offer) {
+  const kind = offer.price.tariff;
+  if (kind && kind !== "adHoc") {
+    const label = offer.price.tariffName || { contract: "Vertragstarif", subscription: "Abo" }[kind] || kind;
+    return `<p class="price-note"><strong>${esc(label)}</strong> – vom Betreiber veröffentlicht. Wo er fehlt, gilt der Ad-hoc-Preis.</p>`;
+  }
+  return `<p class="price-note"><strong>Ad-hoc-Preis · ohne Vertrag</strong> – dein Preis mit Ladekarte oder Abo kann abweichen.</p>`;
+}
+
 function renderWinner(offer) {
   const { street, city } = splitAddress(offer.address);
   const fees = feeText(offer.price);
   return `<article class="winner" aria-labelledby="winner-price">
     <p class="label"><img src="icons/icon-192.png" alt="">Gerade am günstigsten</p>
-    <p class="price" id="winner-price"><span class="num">${euro.format(offer.price.kwh)}</span><span class="unit">€/kWh</span></p>\n    <p class="price-note"><strong>Ad-hoc-Preis · ohne Vertrag</strong> – dein Preis mit Ladekarte oder Abo kann abweichen.</p>
+    <p class="price" id="winner-price"><span class="num">${euro.format(offer.price.kwh)}</span><span class="unit">€/kWh</span></p>
+    ${priceNote(offer)}
     <p class="who">${esc(offer.operator || "Unbekanntes Ladenetz")}</p>
     <p class="addr">${esc([street, city].filter(Boolean).join(", "))}</p>
     <ul class="facts">${facts(offer).map((f) => `<li>${esc(f)}</li>`).join("")}</ul>
@@ -312,9 +322,11 @@ function syncFilterControls() {
   $("f-power").value = String(f.power);
   $("f-radius").value = String(f.radius);
   $("f-connector").value = f.connector;
+  $("f-tariff").value = f.tariff || "adhoc";
   $("f-power").classList.toggle("set", f.power > 0);
   $("f-operator").classList.toggle("set", Boolean(f.operator));
   $("f-connector").classList.toggle("set", f.connector !== "any");
+  $("f-tariff").classList.toggle("set", (f.tariff || "adhoc") !== "adhoc");
 }
 
 let renderToken = 0;
@@ -350,6 +362,7 @@ async function render() {
     minPowerKw: f.power,
     connector: f.connector,
     operators: f.operator ? [f.operator] : [],
+    tariff: f.tariff || "adhoc",
   };
   const { offers, outlook, count } = evaluate(loaded.stations, place.lat, place.lon, f.radius, filters, now, SHOWN + 1);
   updateOperatorOptions(loaded.stations);
@@ -498,9 +511,10 @@ function setupFilters() {
   bind("f-radius", "radius", Number);
   bind("f-operator", "operator", String);
   bind("f-connector", "connector", String);
+  bind("f-tariff", "tariff", String);
   $("winner").addEventListener("click", (event) => {
     if (event.target.closest("[data-reset]")) {
-      Object.assign(state.filters, { power: 0, operator: "", connector: "any" });
+      Object.assign(state.filters, { power: 0, operator: "", connector: "any", tariff: "adhoc" });
     } else {
       const button = event.target.closest("[data-radius]");
       if (!button) return;

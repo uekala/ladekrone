@@ -10,12 +10,14 @@
           "min_power": "Mindestleistung",
           "current_type": "Stromart",
           "connector": "Stecker",
+          "tariff": "Preis",
           "operators": "Nur diese Ladenetze",
           "operators_entity": "Ladenetze aus Entität",
           "location_entity": "Mittelpunkt folgt"
         },
         "data_description": {
           "location": "Mittelpunkt und Radius (max. 50 km) auf der Karte festlegen.",
+          "tariff": "Ad-hoc gilt immer. Vertrag oder Abo nur dort, wo der Betreiber diesen Tarif in der Mobilithek veröffentlicht. Sonst bleibt der Ad-hoc-Preis und ist als solcher gekennzeichnet.",
           "operators": "Optional, kommagetrennt, z. B. „Tesla“ oder „EnBW, Ionity“. Leer = alle.",
           "operators_entity": "Optional: Liest die Ladenetze zusätzlich aus dem Attribut „operators“ einer Entität, z. B. sensor.ladecockpit_multipass (Ladenetze, an denen MultiPass schon funktioniert hat). Die Liste wächst dann von selbst mit. Dann zählen nur Stationen dieser Ladenetze.",
           "location_entity": "Optional: Die Suche wandert mit dieser Entität mit, z. B. mit dem Auto (device_tracker) oder einer Person. Ohne aktuelle Position gilt der Ort oben. Der Radius kommt immer vom Suchgebiet."
@@ -36,6 +38,7 @@
           "min_power": "Mindestleistung",
           "current_type": "Stromart",
           "connector": "Stecker",
+          "tariff": "Preis",
           "operators": "Nur diese Ladenetze",
           "operators_entity": "Ladenetze aus Entität",
           "data_url": "Datenquelle (URL)",
@@ -43,6 +46,7 @@
         },
         "data_description": {
           "operators": "Optional, kommagetrennt. Leer = alle.",
+          "tariff": "Ad-hoc gilt immer. Vertrag oder Abo nur dort, wo der Betreiber diesen Tarif veröffentlicht. Sonst bleibt der Ad-hoc-Preis.",
           "operators_entity": "Optional: Liest die Ladenetze zusätzlich aus dem Attribut „operators“ einer Entität, z. B. sensor.ladecockpit_multipass (Ladenetze, an denen MultiPass schon funktioniert hat). Die Liste wächst dann von selbst mit. Dann zählen nur Stationen dieser Ladenetze.",
           "data_url": "Nur ändern, wenn du eine eigene Datenquelle betreibst.",
           "location_entity": "Optional: Die Suche wandert mit dieser Entität mit, z. B. mit dem Auto (device_tracker) oder einer Person. Ohne aktuelle Position gilt der Ort oben. Der Radius kommt immer vom Suchgebiet."
@@ -76,6 +80,13 @@
         "ccs": "CCS",
         "type2": "Typ 2",
         "chademo": "CHAdeMO"
+      }
+    },
+    "tariff": {
+      "options": {
+        "adhoc": "Ad-hoc (ohne Vertrag)",
+        "contract": "Vertragstarif, wenn veröffentlicht",
+        "subscription": "Abo, wenn veröffentlicht"
       }
     }
   },

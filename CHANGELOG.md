@@ -1,5 +1,9 @@
 # Änderungen
 
+## 0.6.0
+
+- **Vertrag und Abo, wenn der Betreiber sie veröffentlicht.** Neben dem Ad-hoc-Preis behält Ladekrone weitere Tarife aus derselben Mobilithek-Meldung (DATEX `ratePolicy`, z. B. `contract` oder `subscription`). Im Suchgebiet und in der Web-App lässt sich so ein Tarif wählen. Wo der Betreiber ihn meldet, gilt er. Wo nicht, bleibt der Ad-hoc-Preis und ist weiter als solcher gekennzeichnet. Der eigene Vertragssatz einer Ladekarte steht in diesen Daten nicht.
+
 ## 0.5.1
 
 - **Ad-hoc-Preis klar gekennzeichnet.** Web-App und Home-Assistant-Karte weisen direkt am angezeigten Preis darauf hin, dass es sich um einen Ad-hoc-Preis ohne Vertrag handelt. Preise mit Ladekarte oder Abo können abweichen.

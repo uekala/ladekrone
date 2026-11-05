@@ -24,6 +24,7 @@ from .const import (
     CONF_MIN_POWER,
     CONF_OPERATORS,
     CONF_OPERATORS_ENTITY,
+    CONF_TARIFF,
     CONNECTOR_OPTIONS,
     CURRENT_OPTIONS,
     DEFAULT_DATA_URL,
@@ -33,6 +34,7 @@ from .const import (
     LOCATION_DOMAINS,
     MAX_RADIUS_M,
     MIN_POWER_OPTIONS,
+    TARIFF_OPTIONS,
 )
 
 
@@ -59,6 +61,9 @@ def _search_schema(defaults: dict[str, Any]) -> dict:
         ),
         vol.Required(CONF_CONNECTOR, default=defaults.get(CONF_CONNECTOR, "any")): _select(
             CONNECTOR_OPTIONS, CONF_CONNECTOR
+        ),
+        vol.Required(CONF_TARIFF, default=defaults.get(CONF_TARIFF, "adhoc")): _select(
+            TARIFF_OPTIONS, CONF_TARIFF
         ),
         vol.Optional(
             CONF_OPERATORS,
