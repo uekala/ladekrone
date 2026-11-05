@@ -345,28 +345,44 @@ export function normalizeFilters(filters = {}) {
     current: filters.current || "any",
     connector: filters.connector || "any",
     operators: filters.operators || [],
+    tariff: filters.tariff || "adhoc",
   };
+}
+
+const TARIFF_POLICY = { contract: "contract", subscription: "subscription" };
+
+function bestRate(rates, indexes, local, state, policy) {
+  let best = null;
+  for (const index of indexes || []) {
+    if (!(index >= 0 && index < rates.length)) continue;
+    const rate = rates[index];
+    if (policy && rate.pol !== policy) continue;
+    const price = currentPrice(rate, local, state);
+    if (price === null) continue;
+    price.tariff = rate.pol || "adHoc";
+    price.tariffName = rate.n || null;
+    if (best === null || price.kwh < best.kwh) best = price;
+  }
+  return best;
 }
 
 /** Günstigstes passendes Angebot einer Station oder null. */
 export function bestOffer(station, lat, lon, filters, local) {
   if (!operatorMatches(station, filters.operators)) return null;
-  const rates = station.r || [];
+  const prefer = TARIFF_POLICY[filters.tariff] || null;
   const state = station.bl ?? null;
   let best = null;
   for (const group of station.g || []) {
     if (!groupMatches(group, filters)) continue;
-    for (const index of group.r || []) {
-      if (!(index >= 0 && index < rates.length)) continue;
-      const price = currentPrice(rates[index], local, state);
-      if (price === null) continue;
-      if (
-        best === null ||
-        price.kwh < best.price.kwh ||
-        (price.kwh === best.price.kwh && (group.kw || 0) > (best.group.kw || 0))
-      ) {
-        best = { price, group };
-      }
+    let price = prefer ? bestRate(station.x || [], group.x, local, state, prefer) : null;
+    if (price === null) price = bestRate(station.r || [], group.r, local, state, null);
+    if (price === null) continue;
+    if (
+      best === null ||
+      price.kwh < best.price.kwh ||
+      (price.kwh === best.price.kwh && (group.kw || 0) > (best.group.kw || 0))
+    ) {
+      best = { price, group };
     }
   }
   if (best === null) return null;
@@ -435,7 +451,8 @@ export function countStations(stations, lat, lon, radiusKm, filters) {
 const hasTime = (w) => Boolean(w && (filled(w.in) || filled(w.ex) || w.s || w.e));
 
 export function isTimeDependent(station) {
-  return (station.r || []).some((rate) => hasTime(rate.w) || (rate.p || []).some((c) => hasTime(c.w)));
+  const rates = [...(station.r || []), ...(station.x || [])];
+  return rates.some((rate) => hasTime(rate.w) || (rate.p || []).some((c) => hasTime(c.w)));
 }
 
 /** Viertelstunden ab der nächsten vollen Viertelstunde, wie future_steps. */

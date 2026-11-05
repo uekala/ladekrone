@@ -413,12 +413,17 @@ def _rate(rate: dict) -> dict | None:
     return result
 
 
-def _is_adhoc(rate: Any) -> bool:
-    return isinstance(rate, dict) and _enum(rate.get("ratePolicy")) == "adHoc"
+def _rate_name(rate: dict) -> str | None:
+    """Anzeigename eines Tarifs, falls der Betreiber einen mitliefert."""
+    for key in ("name", "rateName", "description"):
+        text = _text(rate.get(key))
+        if text:
+            return text
+    return None
 
 
-def _adhoc_rates(holder: dict, rate_index: dict[str, dict]) -> list[dict]:
-    """Alle Ad-hoc-Tarife eines Elements (Ladepunkt oder Station).
+def _energy_rates(holder: dict, rate_index: dict[str, dict]) -> list[dict]:
+    """Alle Tarife eines Elements (Ladepunkt oder Station).
 
     Inline-Tarife werden über ``rate_index`` aufgelöst, damit dort eingespielte
     Preisaktualisierungen aus den dynamischen Daten greifen.
@@ -430,14 +435,38 @@ def _adhoc_rates(holder: dict, rate_index: dict[str, dict]) -> list[dict]:
         for rate in _as_list(energy.get("energyRate")):
             if isinstance(rate, dict) and isinstance(rate.get("idG"), str):
                 rate = rate_index.get(rate["idG"], rate)
-            if _is_adhoc(rate):
+            if isinstance(rate, dict):
                 found.append(rate)
         for ref in _as_list(energy.get("energyRateByReference")):
             ref_id = ref.get("idG") if isinstance(ref, dict) else None
             rate = rate_index.get(ref_id) if ref_id else None
-            if _is_adhoc(rate):
+            if isinstance(rate, dict):
                 found.append(rate)
     return found
+
+
+def _classify(raw_rates: list[dict]) -> tuple[list[dict], list[dict]]:
+    """Trennt Ad-hoc-Tarife von veröffentlichten Zusatztarifen.
+
+    Ad-hoc bleibt ohne Zusatzfelder, damit bestehende Kacheln gleich bleiben.
+    Zusatztarife tragen ``pol`` (DATEX ``ratePolicy``) und, wenn vorhanden, ``n``.
+    """
+    adhoc: list[dict] = []
+    extra: list[dict] = []
+    for raw in raw_rates:
+        parsed = _rate(raw)
+        if not parsed:
+            continue
+        policy = _enum(raw.get("ratePolicy")) or "adHoc"
+        if policy == "adHoc":
+            adhoc.append(parsed)
+            continue
+        parsed["pol"] = policy
+        name = _rate_name(raw)
+        if name:
+            parsed["n"] = name
+        extra.append(parsed)
+    return adhoc, extra
 
 
 # --------------------------------------------------------------------------
@@ -585,16 +614,18 @@ def _station(
     brand = _text(site.get("brand"))
     address = _address(station.get("locationReference")) or _address(site.get("locationReference"))
 
-    station_rates = [r for r in map(_rate, _adhoc_rates(station, rate_index)) if r]
+    station_adhoc, station_extra = _classify(_energy_rates(station, rate_index))
     rates: list[dict] = []
+    extras: list[dict] = []
     rate_pos: dict[str, int] = {}
+    extra_pos: dict[str, int] = {}
 
-    def register(rate: dict) -> int:
+    def register(bucket: list[dict], positions: dict[str, int], rate: dict) -> int:
         key = _rate_key(rate)
-        if key not in rate_pos:
-            rate_pos[key] = len(rates)
-            rates.append(rate)
-        return rate_pos[key]
+        if key not in positions:
+            positions[key] = len(bucket)
+            bucket.append(rate)
+        return positions[key]
 
     groups: dict[tuple, dict] = {}
     evse_ids: set[str] = set()
@@ -607,16 +638,23 @@ def _station(
         evse = _external_id(point, "evseId")
         if evse:
             evse_ids.add(evse.replace("*", "").replace(" ", "").upper())
-        raw_rates = _adhoc_rates(point, rate_index)
+        raw_rates = _energy_rates(point, rate_index)
         if updates:
             raw_rates += _orphan_rates(point.get("idG"), updates, rate_index)
-        point_rates = [r for r in map(_rate, raw_rates) if r]
-        chosen = point_rates or station_rates
-        rate_refs = tuple(sorted(register(r) for r in chosen))
+        if raw_rates:
+            adhoc, extra = _classify(raw_rates)
+            if not adhoc:
+                adhoc = station_adhoc
+            if not extra:
+                extra = station_extra
+        else:
+            adhoc, extra = station_adhoc, station_extra
+        rate_refs = tuple(sorted(register(rates, rate_pos, r) for r in adhoc))
+        extra_refs = tuple(sorted(register(extras, extra_pos, r) for r in extra))
         current = _enum(point.get("currentType"))
         power = _point_power_kw(point)
         connectors = tuple(_point_connectors(point))
-        key = (current, power, connectors, rate_refs)
+        key = (current, power, connectors, rate_refs, extra_refs)
         group = groups.get(key)
         if group is None:
             group = {"n": 0}
@@ -628,6 +666,8 @@ def _station(
                 group["k"] = list(connectors)
             if rate_refs:
                 group["r"] = list(rate_refs)
+            if extra_refs:
+                group["x"] = list(extra_refs)
             groups[key] = group
         group["n"] += 1
 
@@ -652,11 +692,13 @@ def _station(
         record["a"] = address
     if rates:
         record["r"] = rates
-        if uses_special_days(rates):
-            # Feiertage gelten je Bundesland; nur hier nötig, das hält die Kacheln klein.
-            state = state_at(lat, lon)
-            if state:
-                record["bl"] = state
+    if extras:
+        record["x"] = extras
+    if (rates or extras) and uses_special_days([*rates, *extras]):
+        # Feiertage gelten je Bundesland; nur hier nötig, das hält die Kacheln klein.
+        state = state_at(lat, lon)
+        if state:
+            record["bl"] = state
     if isinstance(station.get("lastUpdated"), str):
         record["u"] = station["lastUpdated"]
     return record, evse_ids
