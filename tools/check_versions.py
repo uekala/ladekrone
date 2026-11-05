@@ -21,9 +21,7 @@ headings = re.findall(r"^##\s+(\d+\.\d+\.\d+)(?:\s|$)", changelog, re.MULTILINE)
 if not headings:
     raise SystemExit("CHANGELOG.md has no version heading")
 if headings[0] != version:
-    raise SystemExit(
-        f"CHANGELOG.md starts at {headings[0]}, but manifest.json says {version}"
-    )
+    raise SystemExit(f"CHANGELOG.md starts at {headings[0]}, but manifest.json says {version}")
 
 ref = os.environ.get("GITHUB_REF", "")
 if ref.startswith("refs/tags/"):
