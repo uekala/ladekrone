@@ -40,7 +40,7 @@ def test_time_windows_are_kept_as_local_clock(stations: dict[str, dict]) -> None
     assert windows == [["07:00", "23:00"], ["23:00", "07:00"]]
 
 
-def test_net_prices_become_gross_and_contracts_are_ignored(stations: dict[str, dict]) -> None:
+def test_net_prices_become_gross_and_contracts_stay_separate(stations: dict[str, dict]) -> None:
     station = stations["test:ST-HPC-1"]
     assert len(station["r"]) == 1
     kwh, minute = station["r"][0]["p"]
@@ -48,6 +48,15 @@ def test_net_prices_become_gross_and_contracts_are_ignored(stations: dict[str, d
     assert minute["t"] == "min"
     assert minute["f"] == 30
     assert minute["v"] == pytest.approx(0.24, abs=0.001)
+    assert station["x"] == [
+        {
+            "p": [{"t": "kwh", "v": 0.39}],
+            "u": "2026-10-13T03:00:00+02:00",
+            "pol": "contract",
+        }
+    ]
+    assert station["g"][0]["r"] == [0]
+    assert station["g"][0]["x"] == [0]
 
 
 def test_rate_references_resolve_and_points_are_grouped(stations: dict[str, dict]) -> None:

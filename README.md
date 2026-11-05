@@ -66,6 +66,7 @@ Deine Position verlässt Home Assistant nicht – abgerufen werden nur ganze Kac
 | Mindestleistung | Alle, ab 22 kW, ab 50 kW oder ab 150 kW |
 | Stromart | Alle, AC oder DC |
 | Stecker | Alle, CCS, Typ 2 oder CHAdeMO |
+| Preis | Ad-hoc, oder Vertrag bzw. Abo, wenn der Betreiber diesen Tarif in der Mobilithek veröffentlicht. Sonst gilt der Ad-hoc-Preis und ist als solcher gekennzeichnet |
 | Nur diese Ladenetze | Optional, kommagetrennt, z. B. `Tesla` oder `EnBW, Ionity` |
 | Ladenetze aus Entität | Optional: Liest weitere Ladenetze aus dem Attribut `operators` einer Entität (Liste aus Namen oder aus Einträgen mit `name`), z. B. `sensor.ladecockpit_multipass` aus [Ladecockpit](https://github.com/uekala/ladecockpit) mit den Ladenetzen, an denen Tesla MultiPass schon funktioniert hat. Die Liste wächst mit, es zählen alle Stationen dieser Netze. Solange kein Ladenetz bekannt ist, wird nichts vorgeschlagen |
 | Mittelpunkt folgt | Optional: `device_tracker`, `person` oder `zone`. Die Suche wandert mit; ohne aktuelle Position gilt das Suchgebiet oben |
@@ -166,7 +167,7 @@ Die Entitäts-IDs hängen vom gewählten Namen ab.
 - Verarbeitet werden nur Angebote mit offener Lizenz (CC0, CC BY 4.0, DL-DE). Die genutzten Quellen und Namensnennungen stehen auf der [Datenseite](https://uekala.github.io/ladekrone/) und im Attribut `attribution` des Preissensors.
 - Die Daten werden aufbereitet: Nettopreise in Bruttopreise umgerechnet, Ladepunkte gruppiert, nach Kacheln aufgeteilt.
 - Stationen mit Feiertagstarif bekommen ihr Bundesland. Die Landesgrenzen dafür stammen aus [Natural Earth](https://www.naturalearthdata.com/) (gemeinfrei).
-- **Ad-hoc-Preise** sind die Preise ohne Vertrag. Mit Ladekarte oder App kann es günstiger oder teurer sein.
+- **Ad-hoc-Preise** sind die Preise ohne Vertrag. Mit Ladekarte oder App kann es günstiger oder teurer sein. Veröffentlicht ein Ladenetz in derselben Meldung zusätzlich einen Vertrags- oder Abotarif, kann das Suchgebiet den bevorzugen. Der eigene Preis deiner Karte steht dort nicht.
 - Alle Angaben ohne Gewähr.
 
 - Welche Quelle wie viele Stationen und Preise liefert und welche abonnierten Quellen gerade nichts liefern, zeigt die Datenseite. Eine [Diagnose je Quelle](https://uekala.github.io/ladekrone/v1/diag.json) listet Tarifarten, Preistypen, Sondertage wie Feiertage (`special_days`) und Beispieldaten.

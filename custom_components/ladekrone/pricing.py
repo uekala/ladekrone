@@ -28,6 +28,12 @@ CONNECTOR_ALIASES = {
     "chademo": {"chademo"},
 }
 
+# Suchgebiet-Auswahl -> DATEX ratePolicy. Ad-hoc ist der Standard und hat keinen Eintrag.
+TARIFF_POLICIES = {
+    "contract": "contract",
+    "subscription": "subscription",
+}
+
 
 @dataclass(frozen=True)
 class Filters:
@@ -42,6 +48,8 @@ class Filters:
     networks: tuple[str, ...] = ()
     # True: ohne bekannte Ladenetze passt keine Station (statt alle).
     only_listed: bool = False
+    # adhoc | contract | subscription. Zusatztarif nur, wo der Betreiber ihn veröffentlicht.
+    tariff: str = "adhoc"
 
 
 @dataclass
@@ -54,6 +62,8 @@ class Price:
     minute_fee_cap: float | None = None
     session_fee: float | None = None
     updated: str | None = None
+    tariff: str = "adHoc"
+    tariff_name: str | None = None
 
 
 @dataclass
@@ -92,6 +102,9 @@ class Offer:
             data["minute_fee_from"] = self.price.minute_fee_from
         if self.price.session_fee is not None:
             data["session_fee"] = round(self.price.session_fee, 2)
+        data["tariff"] = self.price.tariff
+        if self.price.tariff_name:
+            data["tariff_name"] = self.price.tariff_name
         if self.until is not None:
             data["until"] = self.until
             data["next_price"] = round(self.next_price, 2) if self.next_price is not None else None
@@ -360,30 +373,62 @@ def _operator_matches(station: dict, filters: Filters) -> bool:
     return False
 
 
+def _best_indexed(
+    rates: list[dict],
+    indexes: list[int],
+    local: datetime,
+    state: str | None,
+    policy: str | None,
+) -> Price | None:
+    """Günstigster gerade gültiger Tarif aus ``indexes``. ``policy`` filtert ``pol``."""
+    best: Price | None = None
+    for index in indexes:
+        if not 0 <= index < len(rates):
+            continue
+        rate = rates[index]
+        if policy is not None and rate.get("pol") != policy:
+            continue
+        price = current_price(rate, local, state)
+        if price is None:
+            continue
+        price.tariff = rate.get("pol") or "adHoc"
+        price.tariff_name = rate.get("n")
+        if best is None or price.kwh < best.kwh:
+            best = price
+    return best
+
+
 def best_offer(
     station: dict, lat: float, lon: float, filters: Filters, local: datetime
 ) -> Offer | None:
-    """Günstigstes passendes Angebot einer Station oder None."""
+    """Günstigstes passendes Angebot einer Station oder None.
+
+    Ist ein Zusatztarif gewählt und der Betreiber hat ihn veröffentlicht, gilt der.
+    Sonst der Ad-hoc-Preis; das Angebot ist dann mit ``tariff`` ``adHoc`` markiert.
+    """
     if not _operator_matches(station, filters):
         return None
-    rates = station.get("r") or []
+    prefer = TARIFF_POLICIES.get(filters.tariff)
     state = station.get("bl")
     best: tuple[Price, dict] | None = None
     for group in station.get("g", []):
         if not _group_matches(group, filters):
             continue
-        for index in group.get("r", []):
-            if not 0 <= index < len(rates):
-                continue
-            price = current_price(rates[index], local, state)
-            if price is None:
-                continue
-            if (
-                best is None
-                or price.kwh < best[0].kwh
-                or (price.kwh == best[0].kwh and (group.get("kw") or 0) > (best[1].get("kw") or 0))
-            ):
-                best = (price, group)
+        price = None
+        if prefer:
+            price = _best_indexed(
+                station.get("x") or [], group.get("x") or [], local, state, prefer
+            )
+        if price is None:
+            price = _best_indexed(station.get("r") or [], group.get("r") or [], local, state, None)
+        if price is None:
+            continue
+        if (
+            best is None
+            or price.kwh < best[0].kwh
+            or (price.kwh == best[0].kwh and (group.get("kw") or 0) > (best[1].get("kw") or 0))
+        ):
+            best = (price, group)
     if best is None:
         return None
     price, group = best
@@ -472,7 +517,7 @@ def _has_time(validity: dict | None) -> bool:
 
 def is_time_dependent(station: dict) -> bool:
     """True, wenn sich der Preis einer Station mit der Zeit ändern kann."""
-    for rate in station.get("r") or []:
+    for rate in [*(station.get("r") or []), *(station.get("x") or [])]:
         if _has_time(rate.get("w")):
             return True
         if any(_has_time(c.get("w")) for c in rate.get("p", [])):

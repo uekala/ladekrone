@@ -10,12 +10,14 @@
           "min_power": "Minimum power",
           "current_type": "Current type",
           "connector": "Connector",
+          "tariff": "Price",
           "operators": "Only these operators",
           "operators_entity": "Charging networks from entity",
           "location_entity": "Center follows"
         },
         "data_description": {
           "location": "Set centre and radius (max. 50 km) on the map.",
+          "tariff": "Ad hoc always applies. A contract or subscription price is used only where the operator publishes that tariff. Otherwise the price stays the ad-hoc price and is labelled as such.",
           "operators": "Optional, comma-separated, e.g. \"Tesla\" or \"EnBW, Ionity\". Empty = all.",
           "operators_entity": "Optional: Also reads the charging networks from the “operators” attribute of an entity, e.g. sensor.ladecockpit_multipass (networks where MultiPass has worked). The list then grows by itself. Only stations of these networks count.",
           "location_entity": "Optional: the search moves with this entity, e.g. your car (device_tracker) or a person. Without a current position the location above is used. The radius always comes from the search area."
@@ -36,6 +38,7 @@
           "min_power": "Minimum power",
           "current_type": "Current type",
           "connector": "Connector",
+          "tariff": "Price",
           "operators": "Only these operators",
           "operators_entity": "Charging networks from entity",
           "data_url": "Data source (URL)",
@@ -43,6 +46,7 @@
         },
         "data_description": {
           "operators": "Optional, comma-separated. Empty = all.",
+          "tariff": "Ad hoc always applies. A contract or subscription price is used only where the operator publishes that tariff.",
           "operators_entity": "Optional: Also reads the charging networks from the “operators” attribute of an entity, e.g. sensor.ladecockpit_multipass (networks where MultiPass has worked). The list then grows by itself. Only stations of these networks count.",
           "data_url": "Only change this if you run your own data source.",
           "location_entity": "Optional: the search moves with this entity, e.g. your car (device_tracker) or a person. Without a current position the location above is used. The radius always comes from the search area."
@@ -76,6 +80,13 @@
         "ccs": "CCS",
         "type2": "Type 2",
         "chademo": "CHAdeMO"
+      }
+    },
+    "tariff": {
+      "options": {
+        "adhoc": "Ad hoc (no contract)",
+        "contract": "Contract tariff, if published",
+        "subscription": "Subscription, if published"
       }
     }
   },

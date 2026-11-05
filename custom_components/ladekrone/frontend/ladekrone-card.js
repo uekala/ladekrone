@@ -45,6 +45,8 @@ const TEXT = {
     dayAfter: "übermorgen ",
     clock: (t) => `${t} Uhr`,
     adhoc: "Ad-hoc-Preis · ohne Vertrag. Dein Preis mit Ladekarte oder Abo kann abweichen.",
+    tariff: { contract: "Vertragstarif", subscription: "Abo" },
+    noteTariff: (label) => `${label} · vom Betreiber veröffentlicht. Wo er fehlt, gilt der Ad-hoc-Preis.`,
     tesla: "Supercharger-Preise laut AFIR, in der Tesla-App kann der Preis abweichen.",
     supercharger: (city) => `Supercharger ${city}`.trim(),
     editor: { entity: "Günstigster Preis (Ladekrone-Sensor)", title: "Überschrift", show_list: "Weitere Stationen zeigen" },
@@ -75,6 +77,8 @@ const TEXT = {
     dayAfter: "the day after tomorrow ",
     clock: (t) => t,
     adhoc: "Ad-hoc price · without a contract. Your charging card or subscription price may differ.",
+    tariff: { contract: "Contract tariff", subscription: "Subscription" },
+    noteTariff: (label) => `${label} · published by the operator. Where it is missing, the ad-hoc price applies.`,
     tesla: "Supercharger prices as reported under AFIR; the Tesla app may show a different price.",
     supercharger: (city) => `Supercharger ${city}`.trim(),
     editor: { entity: "Cheapest price (Ladekrone sensor)", title: "Title", show_list: "Show more stations" },
@@ -279,6 +283,15 @@ class LadekroneCard extends HTMLElement {
     return isTesla(offer) ? t.supercharger(splitAddress(offer.address).city) : offer.operator || t.unknown;
   }
 
+  _note(offer, t) {
+    const kind = offer.tariff;
+    if (kind && kind !== "adHoc") {
+      const label = offer.tariff_name || (t.tariff && t.tariff[kind]) || kind;
+      return t.noteTariff(label);
+    }
+    return t.adhoc;
+  }
+
   _route(offer) {
     const apple = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
     return apple
@@ -324,7 +337,8 @@ class LadekroneCard extends HTMLElement {
       const until = this._until(best, f, t);
       body = `<article class="winner">
         <p class="label">${esc(t.best)}</p>
-        <p class="price"><span class="num">${f.euro(best.price)}</span><span class="unit">€/kWh</span></p>\n        <p class="price-note">${esc(t.adhoc)}</p>
+        <p class="price"><span class="num">${f.euro(best.price)}</span><span class="unit">€/kWh</span></p>
+        <p class="price-note">${esc(this._note(best, t))}</p>
         <p class="who">${esc(this._name(best, t))}</p>
         <p class="addr">${esc((isTesla(best) ? [street] : [street, city]).filter(Boolean).join(", "))}</p>
         <ul class="facts">${this._facts(best, f, t).map((x) => `<li>${esc(x)}</li>`).join("")}</ul>
@@ -360,6 +374,7 @@ class LadekroneCard extends HTMLElement {
               <span class="p">${f.euro(o.price)}<small>€/kWh</small></span>
               <span class="sub">${esc(head)}</span>
               ${rowUntil ? `<span class="change">${esc(rowUntil)}</span>` : ""}
+              ${o.tariff && o.tariff !== "adHoc" ? `<span class="change">${esc(this._note(o, t))}</span>` : ""}
             </summary>
             <div class="detail">
               <p>${esc([addr.street, addr.city].filter(Boolean).join(", "))}</p>
@@ -381,7 +396,7 @@ class LadekroneCard extends HTMLElement {
       <ha-card>
         <div class="bar"><span class="brand">${CROWN}${esc(title)}</span>${stand}</div>
         ${body}
-        <div class="foot">${summary}<p>${esc(t.adhoc)}</p>${tesla ? `<p>${esc(t.tesla)}</p>` : ""}</div>
+        <div class="foot">${summary}<p>${esc(has(main) ? this._note(main.attributes, t) : t.adhoc)}</p>${tesla ? `<p>${esc(t.tesla)}</p>` : ""}</div>
       </ha-card>`;
 
     this.shadowRoot.querySelectorAll("[data-more]").forEach((button) =>
