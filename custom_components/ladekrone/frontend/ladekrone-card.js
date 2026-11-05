@@ -44,7 +44,7 @@ const TEXT = {
     tomorrow: "morgen ",
     dayAfter: "übermorgen ",
     clock: (t) => `${t} Uhr`,
-    adhoc: "Ad-hoc-Preise ohne Vertrag, gemeldet von den Ladenetzen.",
+    adhoc: "Ad-hoc-Preis · ohne Vertrag. Dein Preis mit Ladekarte oder Abo kann abweichen.",
     tesla: "Supercharger-Preise laut AFIR, in der Tesla-App kann der Preis abweichen.",
     supercharger: (city) => `Supercharger ${city}`.trim(),
     editor: { entity: "Günstigster Preis (Ladekrone-Sensor)", title: "Überschrift", show_list: "Weitere Stationen zeigen" },
@@ -74,7 +74,7 @@ const TEXT = {
     tomorrow: "tomorrow ",
     dayAfter: "the day after tomorrow ",
     clock: (t) => t,
-    adhoc: "Ad-hoc prices without a contract, as reported by the networks.",
+    adhoc: "Ad-hoc price · without a contract. Your charging card or subscription price may differ.",
     tesla: "Supercharger prices as reported under AFIR; the Tesla app may show a different price.",
     supercharger: (city) => `Supercharger ${city}`.trim(),
     editor: { entity: "Cheapest price (Ladekrone sensor)", title: "Title", show_list: "Show more stations" },
@@ -113,7 +113,7 @@ p{margin:0}
 .stand{color:var(--muted);font-size:.85rem;text-align:right}
 .winner{background:var(--wash);border-radius:1.5rem;padding:1.15rem 1.2rem 1.1rem}
 .label{display:flex;align-items:center;gap:.4rem;color:var(--muted);font-weight:700}
-.price{display:flex;align-items:baseline;gap:.45rem;margin:.05rem 0 .5rem;flex-wrap:wrap}
+.price{display:flex;align-items:baseline;gap:.45rem;margin:.05rem 0 .25rem;flex-wrap:wrap}\n.price-note{margin:0 0 .65rem;color:var(--muted);font-size:.9rem;line-height:1.4}
 .num{font:780 clamp(3rem,17cqi,5rem)/.95 "Ladekrone Bricolage",sans-serif;letter-spacing:-.045em;
   font-variant-numeric:tabular-nums;font-variation-settings:"wdth" 88}
 .unit{font:600 1.15rem/1.2 "Ladekrone Bricolage",sans-serif;color:var(--muted)}
@@ -324,7 +324,7 @@ class LadekroneCard extends HTMLElement {
       const until = this._until(best, f, t);
       body = `<article class="winner">
         <p class="label">${esc(t.best)}</p>
-        <p class="price"><span class="num">${f.euro(best.price)}</span><span class="unit">€/kWh</span></p>
+        <p class="price"><span class="num">${f.euro(best.price)}</span><span class="unit">€/kWh</span></p>\n        <p class="price-note">${esc(t.adhoc)}</p>
         <p class="who">${esc(this._name(best, t))}</p>
         <p class="addr">${esc((isTesla(best) ? [street] : [street, city]).filter(Boolean).join(", "))}</p>
         <ul class="facts">${this._facts(best, f, t).map((x) => `<li>${esc(x)}</li>`).join("")}</ul>
