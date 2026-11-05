@@ -1,5 +1,9 @@
 # Änderungen
 
+## 0.5.1
+
+- **Ad-hoc-Preis klar gekennzeichnet.** Web-App und Home-Assistant-Karte weisen direkt am angezeigten Preis darauf hin, dass es sich um einen Ad-hoc-Preis ohne Vertrag handelt. Preise mit Ladekarte oder Abo können abweichen.
+
 ## 0.5.0
 
 - **Feiertagstarife.** Tarife, die an Feiertagen anders gelten (DATEX II `recurringSpecialDay`), werden jetzt ausgewertet, in der Integration, in der Karte und in der Web-App. Es zählen die gesetzlichen Feiertage des Bundeslands, in dem die Station steht, dazu „Tag vor“ und „Tag nach einem Feiertag“. Bisher galt eine Feiertagsregel nie, ein Feiertagspreis wurde also nie angezeigt und ein Werktagspreis auch an Feiertagen.
@@ -50,7 +54,7 @@
 - **Dynamische AFIR-Preise**: Der Datensammler liest Preisaktualisierungen aus den dynamischen Angeboten.
 - **Logo** für Home Assistant ab 2026.3.
 - **Neue Datenseite**: freundlich gestaltet, mit einer Punktkarte Deutschlands aus den echten Daten, hellem und dunklem Modus und gut lesbarer Schrift (Atkinson Hyperlegible). Sie zeigt auch abonnierte Quellen ohne Preise und verlinkt eine Diagnose je Quelle.
-- **Sprache**: „Ladenetze“ statt „Betreiber“ in Einrichtung, README und Datenseite.
+- **Sprache**: „Ladenetze“ statt „Betreiber“ in Einrichtung, Datenseite und README.
 - Die Vorschau auf 24 Stunden läuft außerhalb der Ereignisschleife und wird nur einmal pro Viertelstunde neu berechnet.
 
 ## 0.1.0
