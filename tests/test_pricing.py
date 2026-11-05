@@ -63,6 +63,24 @@ def test_minute_fee_is_reported(stations: list[dict]) -> None:
     assert price.minute_fee_from == 30
 
 
+def test_published_contract_is_used_only_when_selected(stations: list[dict]) -> None:
+    now = _local(12).astimezone(UTC)
+    adhoc = find_offers(stations, *HOME, 10, Filters(operators=("enbw",)), now)
+    assert adhoc[0].price.kwh == 0.79
+    assert adhoc[0].price.tariff == "adHoc"
+    contract = find_offers(
+        stations, *HOME, 10, Filters(operators=("enbw",), tariff="contract"), now
+    )
+    assert contract[0].price.kwh == 0.39
+    assert contract[0].price.tariff == "contract"
+    # Ohne veröffentlichten Vertragstarif bleibt der Ad-hoc-Preis, gekennzeichnet.
+    city = find_offers(
+        stations, *HOME, 10, Filters(operators=("stadtwerke",), tariff="contract"), now
+    )
+    assert city[0].price.kwh == 0.49
+    assert city[0].price.tariff == "adHoc"
+
+
 def test_exception_periods_and_days() -> None:
     weekend_only = {"in": [{"d": [5, 6]}]}
     assert validity_matches(weekend_only, _local(12, day=31))  # Samstag

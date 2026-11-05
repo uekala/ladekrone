@@ -18,10 +18,12 @@ CONF_OPERATORS: Final = "operators"
 CONF_DATA_URL: Final = "data_url"
 CONF_LOCATION_ENTITY: Final = "location_entity"
 CONF_OPERATORS_ENTITY: Final = "operators_entity"
+CONF_TARIFF: Final = "tariff"
 
 MIN_POWER_OPTIONS: Final = ["0", "22", "50", "150"]
 CURRENT_OPTIONS: Final = ["any", "ac", "dc"]
 CONNECTOR_OPTIONS: Final = ["any", "ccs", "type2", "chademo"]
+TARIFF_OPTIONS: Final = ["adhoc", "contract", "subscription"]
 
 UPDATE_INTERVAL: Final = timedelta(minutes=5)
 FETCH_INTERVAL: Final = timedelta(hours=6)
