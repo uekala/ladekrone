@@ -1,5 +1,9 @@
 # Änderungen
 
+## 0.7.0
+
+- **Aktualität je Preis.** Jedes Angebot in den Sensor-Attributen trägt jetzt den Zeitstempel seines eigenen Tarifs (`price_updated`) statt nur des Gesamtdatensatzes, dazu das Alter in Stunden (`price_age_hours`) und eine Einstufung (`price_freshness`): `current` bis 48 Stunden, danach `stale`, ohne Zeitstempel `unknown`. Das gilt für die Angebotsliste und für „Später günstiger“.
+
 ## 0.6.0
 
 - **Vertrag und Abo, wenn der Betreiber sie veröffentlicht.** Neben dem Ad-hoc-Preis behält Ladekrone weitere Tarife aus derselben Mobilithek-Meldung (DATEX `ratePolicy`, z. B. `contract` oder `subscription`). Im Suchgebiet und in der Web-App lässt sich so ein Tarif wählen. Wo der Betreiber ihn meldet, gilt er. Wo nicht, bleibt der Ad-hoc-Preis und ist weiter als solcher gekennzeichnet. Der eigene Vertragssatz einer Ladekarte steht in diesen Daten nicht.

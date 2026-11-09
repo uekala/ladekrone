@@ -45,6 +45,19 @@ def _offer_dict(offer: Offer) -> dict[str, Any]:
     data = offer.as_dict()
     if isinstance(data.get("until"), datetime):
         data["until"] = dt_util.as_local(data["until"]).isoformat()
+
+    # Der Preis-Zeitstempel stammt aus dem einzelnen DATEX-Tarif, nicht
+    # aus dem Zeitpunkt, zu dem der gesamte Datensatz erzeugt wurde.
+    updated = dt_util.parse_datetime(offer.price.updated or "")
+    data["price_updated"] = offer.price.updated
+    if updated is None:
+        data["price_freshness"] = "unknown"
+    else:
+        age_hours = max(0.0, (dt_util.utcnow() - updated).total_seconds() / 3600)
+        data["price_age_hours"] = round(age_hours, 1)
+        # Der Collector veröffentlicht mindestens täglich; zwei Tage Puffer
+        # vermeiden Warnungen allein durch den normalen Veröffentlichungsrhythmus.
+        data["price_freshness"] = "current" if age_hours <= 48 else "stale"
     return data
 
 
@@ -54,7 +67,6 @@ def _cheapest_attrs(data: LadekroneData) -> dict[str, Any]:
     best = data.offers[0]
     attrs = _offer_dict(best)
     attrs.pop("price", None)
-    attrs["price_updated"] = best.price.updated
     attrs["offers"] = [_offer_dict(offer) for offer in data.offers[:TOP_OFFERS]]
     return attrs
 
@@ -83,7 +95,7 @@ def _ahead_attrs(data: LadekroneData) -> dict[str, Any]:
     outlook = data.outlook
     if outlook is None:
         return {}
-    attrs = outlook.offer.as_dict()
+    attrs = _offer_dict(outlook.offer)
     attrs.pop("price", None)
     attrs.pop("until", None)
     attrs.pop("next_price", None)
