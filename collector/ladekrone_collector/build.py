@@ -182,6 +182,86 @@ def _fetch_updates(
     return parse_status(document), document
 
 
+def _has_dynamic_offer(source: dict) -> bool:
+    """True, wenn für die Quelle ein dynamisches Angebot eingetragen ist."""
+    dynamic = source.get("dynamic")
+    return isinstance(dynamic, dict) and bool(dynamic.get("offer") or dynamic.get("subscription"))
+
+
+def _dynamic_status(dynamic: dict[str, Any]) -> str:
+    """Ordnet die Kennzahlen eines dynamischen Feeds einem Status zu."""
+    if dynamic.get("error"):
+        return "error"
+    if not dynamic.get("points_with_price"):
+        return "no_prices"
+    return "ok"
+
+
+def summarize(total: int, diagnostics: dict[str, dict[str, Any]]) -> dict[str, Any]:
+    """Fasst den Lauf zusammen: geladene, übersprungene und fehlerhafte Quellen."""
+    by_status: dict[str, list[str]] = {}
+    dynamic: dict[str, list[str]] = {}
+    for key, diag in diagnostics.items():
+        by_status.setdefault(diag.get("status", "ok"), []).append(key)
+        if isinstance(diag.get("dynamic"), dict):
+            dynamic.setdefault(diag["dynamic"].get("status", "ok"), []).append(key)
+    return {
+        "sources_total": total,
+        "sources_loaded": len(by_status.get("ok", [])),
+        "sources_without_subscription": sorted(by_status.get("no_subscription", [])),
+        "sources_without_certificate": sorted(by_status.get("no_certificate", [])),
+        "sources_not_open_license": sorted(by_status.get("license_not_open", [])),
+        "sources_failed": sorted(by_status.get("error", [])),
+        "dynamic": {status: sorted(keys) for status, keys in sorted(dynamic.items())},
+    }
+
+
+def _github_report(summary: dict[str, Any], diagnostics: dict[str, dict[str, Any]]) -> None:
+    """Macht Lücken in GitHub Actions sichtbar (Annotationen und Zusammenfassung)."""
+    if os.environ.get("GITHUB_ACTIONS") == "true":
+        for key in summary["sources_without_subscription"]:
+            print(f"::warning title=Mobilithek-Abo fehlt::{key}: Quelle ohne Abo übersprungen")
+        for key in summary["dynamic"].get("no_prices", []):
+            print(f"::warning title=Dynamischer Feed ohne Preise::{key}")
+        for key in summary["dynamic"].get("no_subscription", []):
+            print(f"::warning title=Dynamisches Abo fehlt::{key}")
+        for key in summary["sources_failed"]:
+            print(f"::error title=Quelle fehlgeschlagen::{key}: {diagnostics[key].get('error')}")
+    path = os.environ.get("GITHUB_STEP_SUMMARY")
+    if not path:
+        return
+    labels = {
+        "ok": "geladen",
+        "no_subscription": "kein Abo",
+        "no_certificate": "kein Zertifikat",
+        "license_not_open": "Lizenz nicht offen",
+        "error": "Fehler",
+    }
+    dyn_labels = {
+        "ok": "mit Preisen",
+        "no_prices": "ohne Preise",
+        "no_subscription": "kein Abo",
+        "error": "Fehler",
+    }
+    lines = [
+        "## Ladekrone-Datenlauf",
+        "",
+        f"{summary['sources_loaded']} von {summary['sources_total']} Quellen geladen.",
+        "",
+        "| Quelle | Status | Stationen | Dynamische Preise |",
+        "| --- | --- | ---: | --- |",
+    ]
+    for key, diag in diagnostics.items():
+        dyn = diag.get("dynamic")
+        dyn_text = dyn_labels.get(dyn.get("status", ""), "") if isinstance(dyn, dict) else ""
+        lines.append(
+            f"| {diag.get('name', key)} | {labels.get(diag.get('status', 'ok'), '')} "
+            f"| {diag.get('stations', '')} | {dyn_text} |"
+        )
+    with open(path, "a", encoding="utf-8") as handle:
+        handle.write("\n".join(lines) + "\n")
+
+
 def run(args: argparse.Namespace) -> int:
     sources = load_sources(Path(args.sources))
     subscriptions: dict[str, str] = {}
@@ -201,19 +281,38 @@ def run(args: argparse.Namespace) -> int:
         key = source["key"]
         if source.get("license") not in OPEN_LICENSES:
             _LOGGER.warning("%s: Lizenz %s nicht offen, übersprungen", key, source.get("license"))
+            diagnostics[key] = {
+                "name": source["name"],
+                "status": "license_not_open",
+                "license": source.get("license"),
+            }
             continue
         sub = subscription_id(source, subscriptions)
         try:
             if key in local_inputs:
                 raw = Path(local_inputs[key]).read_bytes()
-            elif sub and context is not None:
-                raw = fetch_subscription(key, sub, context, Path(args.cache)).body
-            else:
+            elif not sub:
+                _LOGGER.warning(
+                    "%s: kein Mobilithek-Abo hinterlegt (Angebot %s) – Quelle übersprungen",
+                    key,
+                    source.get("offer"),
+                )
+                diagnostics[key] = {
+                    "name": source["name"],
+                    "status": "no_subscription",
+                    "offer": source.get("offer"),
+                }
                 continue
+            elif context is None:
+                _LOGGER.warning("%s: kein Client-Zertifikat – Quelle übersprungen", key)
+                diagnostics[key] = {"name": source["name"], "status": "no_certificate"}
+                continue
+            else:
+                raw = fetch_subscription(key, sub, context, Path(args.cache)).body
             document = load_document(raw)
         except (FetchError, UnsupportedFormatError, OSError) as err:
             failures += 1
-            diagnostics[key] = {"name": source["name"], "error": str(err)}
+            diagnostics[key] = {"name": source["name"], "status": "error", "error": str(err)}
             _LOGGER.error("%s: %s", key, err)
             continue
 
@@ -225,12 +324,31 @@ def run(args: argparse.Namespace) -> int:
             )
             if updates is not None:
                 dynamic = diagnose_status(status_doc, updates, rate_ids(document))
+                dynamic["status"] = _dynamic_status(dynamic)
+                if dynamic["status"] == "no_prices":
+                    _LOGGER.warning(
+                        "%s: dynamischer Feed liefert %d Status, aber keine Preise",
+                        key,
+                        dynamic.get("point_status", 0),
+                    )
+            elif _has_dynamic_offer(source) and f"{key}_dyn" not in local_inputs:
+                dynamic = {"status": "no_subscription", "offer": source["dynamic"].get("offer")}
+                _LOGGER.warning(
+                    "%s: dynamisches Angebot %s ohne Abo – nur statische Preise",
+                    key,
+                    source["dynamic"].get("offer"),
+                )
         except (FetchError, UnsupportedFormatError, OSError) as err:
-            dynamic = {"error": str(err)}
+            dynamic = {"status": "error", "error": str(err)}
             _LOGGER.warning("%s: dynamische Preise nicht verfügbar: %s", key, err)
 
         records = parse_document(document, key, updates)
-        diagnostics[key] = {"name": source["name"], "stations": len(records), **diagnose(document)}
+        diagnostics[key] = {
+            "name": source["name"],
+            "status": "ok",
+            "stations": len(records),
+            **diagnose(document),
+        }
         if dynamic is not None:
             diagnostics[key]["dynamic"] = dynamic
         holidays = sum(1 for record, _evse in records if uses_special_days(record.get("r", [])))
@@ -238,8 +356,14 @@ def run(args: argparse.Namespace) -> int:
         parsed.append((source, records))
         used_sources.append(source)
 
+    summary = summarize(len(sources), diagnostics)
+    _github_report(summary, diagnostics)
+
     if not parsed:
-        _LOGGER.error("Keine Quelle lieferte Daten – Ausgabe wird nicht geschrieben")
+        _LOGGER.error(
+            "Keine Quelle lieferte Daten (0 von %d) – Ausgabe wird nicht geschrieben",
+            len(sources),
+        )
         return 1
 
     all_records = [item for _source, records in parsed for item in records]
@@ -253,14 +377,29 @@ def run(args: argparse.Namespace) -> int:
         stats,
         generated,
         diagnostics,
-        {"operator_ids": operator_ids},
+        {"summary": summary, "operator_ids": operator_ids},
     )
+    skipped = (
+        len(summary["sources_without_subscription"])
+        + len(summary["sources_without_certificate"])
+        + len(summary["sources_not_open_license"])
+    )
+    dynamic = summary["dynamic"]
     _LOGGER.info(
-        "Fertig: %d Stationen, %d Ladepunkte, %d Kacheln, %d Quellen mit Fehler",
+        "Fertig: %d von %d Quellen geladen, %d übersprungen, %d mit Fehler; "
+        "dynamische Feeds: %d mit Preisen, %d ohne Preise, %d ohne Abo, %d mit Fehler; "
+        "%d Stationen, %d Ladepunkte, %d Kacheln",
+        summary["sources_loaded"],
+        summary["sources_total"],
+        skipped,
+        failures,
+        len(dynamic.get("ok", [])),
+        len(dynamic.get("no_prices", [])),
+        len(dynamic.get("no_subscription", [])),
+        len(dynamic.get("error", [])),
         meta["stations"],
         meta["points"],
         len(meta["tiles"]),
-        failures,
     )
     return 0
 

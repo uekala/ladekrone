@@ -1,5 +1,10 @@
 # Änderungen
 
+## Unveröffentlicht
+
+- **Datensammler meldet Lücken.** Quellen ohne Mobilithek-Abo wurden bisher stillschweigend übersprungen; jetzt erscheinen sie als Warnung im Log, als Annotation und Tabelle in der Zusammenfassung des Workflows und in der Diagnose (`status: no_subscription`). Dasselbe gilt für dynamische Angebote ohne Abo und für dynamische Feeds, die Status, aber keine Preise liefern (`dynamic.status: no_prices`).
+- Die Abschlusszeile nennt „X von Y Quellen geladen“, übersprungene und fehlerhafte Quellen sowie den Stand der dynamischen Feeds. `diag.json` enthält dazu einen Block `summary`.
+
 ## 0.7.0
 
 - **Aktualität je Preis.** Jedes Angebot in den Sensor-Attributen trägt jetzt den Zeitstempel seines eigenen Tarifs (`price_updated`) statt nur des Gesamtdatensatzes, dazu das Alter in Stunden (`price_age_hours`) und eine Einstufung (`price_freshness`): `current` bis 48 Stunden, danach `stale`, ohne Zeitstempel `unknown`. Das gilt für die Angebotsliste und für „Später günstiger“.
