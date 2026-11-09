@@ -6,10 +6,17 @@ from custom_components.ladekrone.sensor import _offer_dict
 
 def make_offer(updated):
     return Offer(
-        station_id="test:station", operator="Testnetz", address=None,
-        latitude=51.0, longitude=6.0, distance_km=1.0,
-        price=Price(kwh=0.44, updated=updated), power_kw=50.0,
-        current="dc", connectors=["ccs"], points=2,
+        station_id="test:station",
+        operator="Testnetz",
+        address=None,
+        latitude=51.0,
+        longitude=6.0,
+        distance_km=1.0,
+        price=Price(kwh=0.44, updated=updated),
+        power_kw=50.0,
+        current="dc",
+        connectors=["ccs"],
+        points=2,
     )
 
 
