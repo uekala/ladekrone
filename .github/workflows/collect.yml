@@ -28,7 +28,7 @@ jobs:
           python-version: "3.13"
 
       - name: Rohdaten-Cache wiederherstellen
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: .cache/mobilithek
           key: mobilithek-${{ github.run_id }}
@@ -78,7 +78,7 @@ jobs:
         if: always()
         run: rm -rf "$RUNNER_TEMP/cert"
 
-      - uses: actions/configure-pages@v5
+      - uses: actions/configure-pages@v6
         if: steps.cert.outputs.ready == 'true'
 
       - uses: actions/upload-pages-artifact@v4
@@ -88,4 +88,4 @@ jobs:
 
       - id: deploy
         if: steps.cert.outputs.ready == 'true'
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
