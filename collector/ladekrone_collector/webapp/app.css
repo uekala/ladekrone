@@ -119,4 +119,9 @@ h1{font:750 clamp(2rem,8.5vw,2.9rem)/1.05 "Bricolage",sans-serif;letter-spacing:
 .foot .btn{margin:.3rem 0 .6rem}
 
 @media (min-width:44rem){.app{padding-top:1rem}}
-\n/* Preisart direkt am angezeigten Angebot kenntlich machen */\n.price-note{margin:-.15rem 0 .65rem;color:var(--muted);font-size:.94rem;line-height:1.4}\n.price-note strong{color:var(--ink)}\n
+
+/* Preisart direkt am angezeigten Angebot kenntlich machen */
+.price-note{margin:-.15rem 0 .65rem;color:var(--muted);font-size:.94rem;line-height:1.4}
+.price-note strong{color:var(--ink)}
+.price-old{margin:-.4rem 0 .65rem;color:var(--ink);font-size:.94rem;line-height:1.4;font-weight:700}
+.list .change.old{color:var(--ink);font-weight:700}

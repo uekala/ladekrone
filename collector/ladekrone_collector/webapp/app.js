@@ -11,6 +11,12 @@ const clock = new Intl.DateTimeFormat("de-DE", { timeZone: "Europe/Berlin", hour
 const dateLong = new Intl.DateTimeFormat("de-DE", {
   timeZone: "Europe/Berlin", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit",
 });
+const dateShort = new Intl.DateTimeFormat("de-DE", {
+  timeZone: "Europe/Berlin", day: "2-digit", month: "2-digit", year: "numeric",
+});
+// Betreiber melden einen Tarif meist nur bei einer Änderung neu; wie in der
+// Integration gilt ein Preis erst nach 30 Tagen ohne Meldung als alt.
+const PRICE_STALE_MS = 30 * 24 * 3600 * 1000;
 const CONNECTORS = { ccs: "CCS", type2: "Typ 2", chademo: "CHAdeMO" };
 
 // ---------------------------------------------------------------------------
@@ -222,6 +228,12 @@ function nearestCity(index, lat, lon) {
 // Anzeige
 // ---------------------------------------------------------------------------
 
+function oldPriceDate(price) {
+  const updated = Date.parse(price.updated ?? "");
+  if (Number.isNaN(updated) || Date.now() - updated <= PRICE_STALE_MS) return "";
+  return dateShort.format(updated);
+}
+
 function priceNote(offer) {
   const kind = offer.price.tariff;
   if (kind && kind !== "adHoc") {
@@ -238,6 +250,7 @@ function renderWinner(offer) {
     <p class="label"><img src="icons/icon-192.png" alt="">Gerade am günstigsten</p>
     <p class="price" id="winner-price"><span class="num">${euro.format(offer.price.kwh)}</span><span class="unit">€/kWh</span></p>
     ${priceNote(offer)}
+    ${oldPriceDate(offer.price) ? `<p class="price-old">Preis vom ${esc(oldPriceDate(offer.price))}. Ob er noch gilt, ist offen.</p>` : ""}
     <p class="who">${esc(offer.operator || "Unbekanntes Ladenetz")}</p>
     <p class="addr">${esc([street, city].filter(Boolean).join(", "))}</p>
     <ul class="facts">${facts(offer).map((f) => `<li>${esc(f)}</li>`).join("")}</ul>
@@ -275,6 +288,7 @@ function renderList(offers) {
         <span class="p">${euro.format(o.price.kwh)}<small>€/kWh</small></span>
         <span class="sub">${esc(head)}</span>
         ${o.until ? `<span class="change">${esc(untilText(o))}</span>` : ""}
+        ${oldPriceDate(o.price) ? `<span class="change old">Preis vom ${esc(oldPriceDate(o.price))}</span>` : ""}
       </summary>
       <div class="detail">
         <p>${esc([street, city].filter(Boolean).join(", "))}</p>
