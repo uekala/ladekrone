@@ -238,3 +238,16 @@ def test_github_actions_report(tmp_path: Path, monkeypatch, capsys) -> None:
 def test_no_data_at_all_fails(tmp_path: Path) -> None:
     sources = [{"key": "ladenetz", "name": "ladenetz.de", "license": "CC0-1.0", "offer": "902"}]
     assert run(_args(tmp_path, sources, [])) == 1
+
+
+def test_annotations_cannot_inject_workflow_commands(monkeypatch, capsys) -> None:
+    from ladekrone_collector.build import _github_report
+
+    monkeypatch.setenv("GITHUB_ACTIONS", "true")
+    monkeypatch.delenv("GITHUB_STEP_SUMMARY", raising=False)
+    summary = {"sources_without_subscription": [], "dynamic": {}, "sources_failed": ["x"]}
+    _github_report(summary, {"x": {"error": "HTTP 500\n::warning::injiziert 100%"}})
+    lines = capsys.readouterr().out.splitlines()
+    assert lines == [
+        "::error title=Quelle fehlgeschlagen::x: HTTP 500%0A::warning::injiziert 100%25"
+    ]

@@ -216,17 +216,28 @@ def summarize(total: int, diagnostics: dict[str, dict[str, Any]]) -> dict[str, A
     }
 
 
+def _escape_annotation(value: object) -> str:
+    """Escapes text for a GitHub Actions workflow command.
+
+    Error texts can come from the Mobilithek server. Without escaping, a line
+    break in them would start a second workflow command.
+    """
+    return str(value).replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+
+
 def _github_report(summary: dict[str, Any], diagnostics: dict[str, dict[str, Any]]) -> None:
     """Macht Lücken in GitHub Actions sichtbar (Annotationen und Zusammenfassung)."""
     if os.environ.get("GITHUB_ACTIONS") == "true":
+        esc = _escape_annotation
         for key in summary["sources_without_subscription"]:
-            print(f"::warning title=Mobilithek-Abo fehlt::{key}: Quelle ohne Abo übersprungen")
+            print(f"::warning title=Mobilithek-Abo fehlt::{esc(key)}: Quelle ohne Abo übersprungen")
         for key in summary["dynamic"].get("no_prices", []):
-            print(f"::warning title=Dynamischer Feed ohne Preise::{key}")
+            print(f"::warning title=Dynamischer Feed ohne Preise::{esc(key)}")
         for key in summary["dynamic"].get("no_subscription", []):
-            print(f"::warning title=Dynamisches Abo fehlt::{key}")
+            print(f"::warning title=Dynamisches Abo fehlt::{esc(key)}")
         for key in summary["sources_failed"]:
-            print(f"::error title=Quelle fehlgeschlagen::{key}: {diagnostics[key].get('error')}")
+            error = diagnostics[key].get("error")
+            print(f"::error title=Quelle fehlgeschlagen::{esc(key)}: {esc(error)}")
     path = os.environ.get("GITHUB_STEP_SUMMARY")
     if not path:
         return
