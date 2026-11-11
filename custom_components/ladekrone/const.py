@@ -26,6 +26,10 @@ CONNECTOR_OPTIONS: Final = ["any", "ccs", "type2", "chademo"]
 TARIFF_OPTIONS: Final = ["adhoc", "contract", "subscription"]
 
 UPDATE_INTERVAL: Final = timedelta(minutes=5)
+# Betreiber melden einen Tarif meist nur neu, wenn er sich ändert. Der Zeitstempel
+# ist also die letzte Änderung, nicht der letzte Abruf; erst nach 30 Tagen gilt
+# ein Preis als alt.
+PRICE_STALE_AFTER: Final = timedelta(days=30)
 FETCH_INTERVAL: Final = timedelta(hours=6)
 REQUEST_TIMEOUT: Final = 30
 TOP_OFFERS: Final = 5

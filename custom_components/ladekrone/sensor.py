@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 
 from homeassistant.components.sensor import (
@@ -21,7 +21,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import dt as dt_util
 
 from . import LadekroneConfigEntry
-from .const import DOMAIN, TOP_OFFERS
+from .const import DOMAIN, PRICE_STALE_AFTER, TOP_OFFERS
 from .coordinator import LadekroneCoordinator, LadekroneData
 from .pricing import Offer
 
@@ -53,11 +53,9 @@ def _offer_dict(offer: Offer) -> dict[str, Any]:
     if updated is None:
         data["price_freshness"] = "unknown"
     else:
-        age_hours = max(0.0, (dt_util.utcnow() - updated).total_seconds() / 3600)
-        data["price_age_hours"] = round(age_hours, 1)
-        # Der Collector veröffentlicht mindestens täglich; zwei Tage Puffer
-        # vermeiden Warnungen allein durch den normalen Veröffentlichungsrhythmus.
-        data["price_freshness"] = "current" if age_hours <= 48 else "stale"
+        age = max(timedelta(0), dt_util.utcnow() - updated)
+        data["price_age_hours"] = round(age.total_seconds() / 3600, 1)
+        data["price_freshness"] = "current" if age <= PRICE_STALE_AFTER else "stale"
     return data
 
 

@@ -47,6 +47,8 @@ const TEXT = {
     adhoc: "Ad-hoc-Preis · ohne Vertrag. Dein Preis mit Ladekarte oder Abo kann abweichen.",
     tariff: { contract: "Vertragstarif", subscription: "Abo" },
     noteTariff: (label) => `${label} · vom Betreiber veröffentlicht. Wo er fehlt, gilt der Ad-hoc-Preis.`,
+    old: (d) => `Preis vom ${d}. Ob er noch gilt, ist offen.`,
+    oldShort: (d) => `Preis vom ${d}`,
     tesla: "Supercharger-Preise laut AFIR, in der Tesla-App kann der Preis abweichen.",
     supercharger: (city) => `Supercharger ${city}`.trim(),
     editor: { entity: "Günstigster Preis (Ladekrone-Sensor)", title: "Überschrift", show_list: "Weitere Stationen zeigen" },
@@ -79,6 +81,8 @@ const TEXT = {
     adhoc: "Ad-hoc price · without a contract. Your charging card or subscription price may differ.",
     tariff: { contract: "Contract tariff", subscription: "Subscription" },
     noteTariff: (label) => `${label} · published by the operator. Where it is missing, the ad-hoc price applies.`,
+    old: (d) => `Price from ${d}. It may no longer apply.`,
+    oldShort: (d) => `Price from ${d}`,
     tesla: "Supercharger prices as reported under AFIR; the Tesla app may show a different price.",
     supercharger: (city) => `Supercharger ${city}`.trim(),
     editor: { entity: "Cheapest price (Ladekrone sensor)", title: "Title", show_list: "Show more stations" },
@@ -118,6 +122,7 @@ p{margin:0}
 .winner{background:var(--wash);border-radius:1.5rem;padding:1.15rem 1.2rem 1.1rem}
 .label{display:flex;align-items:center;gap:.4rem;color:var(--muted);font-weight:700}
 .price{display:flex;align-items:baseline;gap:.45rem;margin:.05rem 0 .25rem;flex-wrap:wrap}\n.price-note{margin:0 0 .65rem;color:var(--muted);font-size:.9rem;line-height:1.4}
+.price-old{margin:-.4rem 0 .65rem;color:var(--ink);font-size:.9rem;line-height:1.4;font-weight:700}
 .num{font:780 clamp(3rem,17cqi,5rem)/.95 "Ladekrone Bricolage",sans-serif;letter-spacing:-.045em;
   font-variant-numeric:tabular-nums;font-variation-settings:"wdth" 88}
 .unit{font:600 1.15rem/1.2 "Ladekrone Bricolage",sans-serif;color:var(--muted)}
@@ -150,6 +155,7 @@ summary::-webkit-details-marker{display:none}
   font-variant-numeric:tabular-nums;letter-spacing:-.02em}
 .p small{display:block;font:400 .8rem/1.3 "Ladekrone Atkinson",sans-serif;color:var(--muted);letter-spacing:0}
 .change{grid-column:1 / -1;font-size:.9rem;color:var(--later-ink)}
+.change.old{color:var(--ink);font-weight:700}
 details[open]>summary{padding-bottom:.35rem}
 .detail{padding:0 .15rem .9rem;color:var(--muted);font-size:.94rem}
 .detail p{margin:.15rem 0}
@@ -236,6 +242,7 @@ class LadekroneCard extends HTMLElement {
     const day = new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" });
     const clock = new Intl.DateTimeFormat(lang, { timeZone, hour: "2-digit", minute: "2-digit" });
     const stamp = new Intl.DateTimeFormat(lang, { timeZone, day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+    const date = new Intl.DateTimeFormat(lang, { timeZone, day: "2-digit", month: "2-digit", year: "numeric" });
     const t = LadekroneCard.text(hass);
     const dayIndex = (date) => {
       const [y, m, d] = day.format(date).split("-").map(Number);
@@ -246,6 +253,7 @@ class LadekroneCard extends HTMLElement {
       one: (v) => number(1, 1).format(v),
       whole: (v) => number(0, 0).format(v),
       stamp: (v) => t.clock(stamp.format(new Date(v))),
+      date: (v) => date.format(new Date(v)),
       when: (iso, base) => {
         const date = new Date(iso);
         const diff = dayIndex(date) - dayIndex(base ? new Date(base) : new Date());
@@ -292,6 +300,12 @@ class LadekroneCard extends HTMLElement {
     return t.adhoc;
   }
 
+  _old(offer, f) {
+    if (offer.price_freshness !== "stale" || !offer.price_updated) return "";
+    const when = new Date(offer.price_updated);
+    return Number.isNaN(when.getTime()) ? "" : f.date(when);
+  }
+
   _route(offer) {
     const apple = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
     return apple
@@ -335,10 +349,12 @@ class LadekroneCard extends HTMLElement {
       const { street, city } = splitAddress(best.address);
       const fees = this._fees(best, f, t);
       const until = this._until(best, f, t);
+      const old = this._old(best, f);
       body = `<article class="winner">
         <p class="label">${esc(t.best)}</p>
         <p class="price"><span class="num">${f.euro(best.price)}</span><span class="unit">€/kWh</span></p>
         <p class="price-note">${esc(this._note(best, t))}</p>
+        ${old ? `<p class="price-old">${esc(t.old(old))}</p>` : ""}
         <p class="who">${esc(this._name(best, t))}</p>
         <p class="addr">${esc((isTesla(best) ? [street] : [street, city]).filter(Boolean).join(", "))}</p>
         <ul class="facts">${this._facts(best, f, t).map((x) => `<li>${esc(x)}</li>`).join("")}</ul>
@@ -367,6 +383,7 @@ class LadekroneCard extends HTMLElement {
             .filter(Boolean).join(", ");
           const rowUntil = this._until(o, f, t);
           const rowFees = this._fees(o, f, t);
+          const rowOld = this._old(o, f);
           const id = `${o.latitude},${o.longitude}`;
           return `<li><details data-key="${esc(id)}"${open.has(id) ? " open" : ""}>
             <summary>
@@ -375,6 +392,7 @@ class LadekroneCard extends HTMLElement {
               <span class="sub">${esc(head)}</span>
               ${rowUntil ? `<span class="change">${esc(rowUntil)}</span>` : ""}
               ${o.tariff && o.tariff !== "adHoc" ? `<span class="change">${esc(this._note(o, t))}</span>` : ""}
+              ${rowOld ? `<span class="change old">${esc(t.oldShort(rowOld))}</span>` : ""}
             </summary>
             <div class="detail">
               <p>${esc([addr.street, addr.city].filter(Boolean).join(", "))}</p>

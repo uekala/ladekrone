@@ -28,11 +28,19 @@ def test_recent_price_is_current():
     assert data["price_age_hours"] == 0.0
 
 
+def test_unchanged_tariff_stays_current_for_30_days():
+    # Betreiber melden einen Tarif meist nur, wenn er sich ändert.
+    updated = (datetime.now(UTC) - timedelta(days=29)).isoformat()
+    data = _offer_dict(make_offer(updated))
+    assert data["price_freshness"] == "current"
+    assert data["price_age_hours"] >= 29 * 24
+
+
 def test_old_price_is_stale():
-    updated = (datetime.now(UTC) - timedelta(hours=72)).isoformat()
+    updated = (datetime.now(UTC) - timedelta(days=31)).isoformat()
     data = _offer_dict(make_offer(updated))
     assert data["price_freshness"] == "stale"
-    assert data["price_age_hours"] >= 72.0
+    assert data["price_age_hours"] >= 31 * 24
 
 
 def test_missing_timestamp_is_unknown():
