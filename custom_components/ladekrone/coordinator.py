@@ -304,7 +304,8 @@ class LadekroneCoordinator(DataUpdateCoordinator[LadekroneData]):
             "tiles_published": len(meta.get("tiles") or []),
             "tiles_wanted": len(wanted),
             "tiles_loaded": len(self._tiles),
-            "tiles_missing": [key for key in wanted if key not in self._tiles],
+            # Nur die Anzahl: Kachel-Schlüssel verraten die Gegend des Suchgebiets.
+            "tiles_missing": sum(1 for key in wanted if key not in self._tiles),
             "stations_loaded": sum(len(stations) for stations in self._tiles.values()),
         }
 

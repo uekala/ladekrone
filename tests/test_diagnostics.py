@@ -17,6 +17,7 @@ from pytest_homeassistant_custom_component.test_util.aiohttp import AiohttpClien
 
 from custom_components.ladekrone.const import DOMAIN
 from custom_components.ladekrone.diagnostics import async_get_config_entry_diagnostics
+from custom_components.ladekrone.pricing import tiles_for_radius
 
 from .conftest import DATA_URL
 
@@ -98,7 +99,10 @@ async def test_diagnostics_show_fetch_state_and_collector_report(
     assert fetch["fetch_interval_hours"] == 6
     assert fetch["tiles_wanted"] >= 1
     assert fetch["tiles_loaded"] == fetch["tiles_wanted"]
-    assert fetch["tiles_missing"] == []
+    assert fetch["tiles_missing"] == 0
+    dump = json.dumps(diagnostics, default=str)
+    for key in tiles_for_radius(50.1101, 8.6801, 10, 0.25):
+        assert f'"{key}"' not in dump
     assert fetch["stations_loaded"] > 0
 
     collector = diagnostics["collector"]
