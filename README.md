@@ -172,6 +172,7 @@ Die Entitäts-IDs hängen vom gewählten Namen ab.
 
 - Welche Quelle wie viele Stationen und Preise liefert und welche abonnierten Quellen gerade nichts liefern, zeigt die Datenseite. Eine [Diagnose je Quelle](https://uekala.github.io/ladekrone/v1/diag.json) listet Tarifarten, Preistypen, Sondertage wie Feiertage (`special_days`) und Beispieldaten.
 - Jeder Datenlauf meldet, wie viele Quellen geladen wurden („19 von 21 Quellen geladen“). Quellen ohne Abo, dynamische Feeds ohne Abo und dynamische Feeds, die Status, aber keine Preise liefern, erscheinen als Warnung im Log, als Hinweis in der Zusammenfassung des Workflows und unter `summary` in der Diagnose.
+- In Home Assistant zeigt **Einstellungen → Geräte & Dienste → Ladekrone → Diagnose herunterladen** denselben Quellenbericht, dazu Alter der Daten, letzten Abruf mit Fehlertext und geladene Kacheln – ohne den Standort.
 
 ## Grenzen (Version 0.5)
 

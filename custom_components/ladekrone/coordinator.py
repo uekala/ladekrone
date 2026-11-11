@@ -170,6 +170,9 @@ class LadekroneCoordinator(DataUpdateCoordinator[LadekroneData]):
         self._tiles: dict[str, list[dict]] = {}
         self._etags: dict[str, str] = {}
         self._last_fetch: datetime | None = None
+        # Für die Diagnose: letzter Abrufversuch und sein Fehler (None = erfolgreich).
+        self.last_fetch_attempt: datetime | None = None
+        self.last_fetch_error: str | None = None
         self._outlook_key: tuple | None = None
         self._outlook: Outlook | None = None
         # Ladenetze aus einer Entität; gemerkt, damit sie einen Neustart überstehen,
@@ -241,14 +244,17 @@ class LadekroneCoordinator(DataUpdateCoordinator[LadekroneData]):
         now = dt_util.utcnow()
         lat, lon, center_source = self.center()
         if self._last_fetch is None or now - self._last_fetch >= FETCH_INTERVAL:
+            self.last_fetch_attempt = now
             try:
                 await self._async_fetch(lat, lon)
             except (aiohttp.ClientError, TimeoutError, ValueError) as err:
+                self.last_fetch_error = f"{type(err).__name__}: {err}"
                 if self._meta is None:
                     raise UpdateFailed(f"Ladepreise nicht abrufbar: {err}") from err
                 _LOGGER.warning("Abruf fehlgeschlagen, nutze vorhandene Daten: %s", err)
             else:
                 self._last_fetch = now
+                self.last_fetch_error = None
         else:
             try:
                 await self._async_fetch_missing(lat, lon)
@@ -281,6 +287,26 @@ class LadekroneCoordinator(DataUpdateCoordinator[LadekroneData]):
             center_source=center_source,
             networks=settings.filters.networks if settings.operators_entity else None,
         )
+
+    def diagnostics(self) -> dict[str, Any]:
+        """Zustand von Abruf und Kacheln für die Diagnosedaten (ohne Koordinaten)."""
+        meta = self._meta or {}
+        lat, lon, _source = self.center()
+        wanted = self._wanted_tiles(lat, lon, meta) if meta else []
+        return {
+            "format": meta.get("v"),
+            "last_fetch": self._last_fetch.isoformat() if self._last_fetch else None,
+            "last_fetch_attempt": (
+                self.last_fetch_attempt.isoformat() if self.last_fetch_attempt else None
+            ),
+            "last_fetch_error": self.last_fetch_error,
+            "fetch_interval_hours": FETCH_INTERVAL.total_seconds() / 3600,
+            "tiles_published": len(meta.get("tiles") or []),
+            "tiles_wanted": len(wanted),
+            "tiles_loaded": len(self._tiles),
+            "tiles_missing": [key for key in wanted if key not in self._tiles],
+            "stations_loaded": sum(len(stations) for stations in self._tiles.values()),
+        }
 
     def _wanted_tiles(self, lat: float, lon: float, meta: dict[str, Any]) -> list[str]:
         available = set(meta.get("tiles") or [])

@@ -4,6 +4,7 @@
 
 - **Datensammler meldet Lücken.** Quellen ohne Mobilithek-Abo wurden bisher stillschweigend übersprungen; jetzt erscheinen sie als Warnung im Log, als Annotation und Tabelle in der Zusammenfassung des Workflows und in der Diagnose (`status: no_subscription`). Dasselbe gilt für dynamische Angebote ohne Abo und für dynamische Feeds, die Status, aber keine Preise liefern (`dynamic.status: no_prices`).
 - Die Abschlusszeile nennt „X von Y Quellen geladen“, übersprungene und fehlerhafte Quellen sowie den Stand der dynamischen Feeds. `diag.json` enthält dazu einen Block `summary`.
+- **Ausführlichere Diagnosedaten in Home Assistant.** Die heruntergeladene Diagnose enthält jetzt die Integrationsversion, Alter des Datenstands, letzten Abruf und letzten Abrufversuch mit Fehlertext, Kacheln (veröffentlicht, benötigt, geladen, fehlend) und geladene Stationen sowie den Bericht des Datensammlers aus `diag.json`: welche Quellen geladen sind, welche ohne Abo, Zertifikat oder offene Lizenz fehlen, welche fehlschlagen und wie es um die dynamischen Feeds steht. Der Standort bleibt ausgeblendet; `diag.json` wird nur beim Herunterladen der Diagnose abgerufen.
 
 ## 0.7.0
 
