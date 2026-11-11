@@ -38,7 +38,7 @@ Die Preislogik ist dieselbe wie in der Integration; ein Test vergleicht beide.
 
 ```
 Mobilithek (AFIR-Angebote der Ladenetze)
-   │  täglich, GitHub Action mit Client-Zertifikat
+   │  alle 6 Stunden, GitHub Action mit Client-Zertifikat
    ▼
 GitHub Pages: kompakte JSON-Kacheln (0,25° × 0,25°)
    │  alle 6 Stunden, nur die Kacheln im eigenen Umkreis
@@ -176,7 +176,7 @@ Die Entitäts-IDs hängen vom gewählten Namen ab.
 
 ## Grenzen (Version 0.5)
 
-- Die Daten werden einmal täglich aufbereitet. Dynamische Preise kommen deshalb mit bis zu einem Tag Verzug an.
+- Die Daten werden alle 6 Stunden aufbereitet; GitHub startet geplante Läufe allerdings oft deutlich später. Dynamische Preise kommen deshalb mit einigen Stunden Verzug an.
 - Nicht alle Ladenetze melden schon an die Mobilithek, und nicht jede gemeldete Säule hat einen Preis. Qwello meldet derzeit weder statisch noch dynamisch Preise.
 - Nur Deutschland.
 - Gelesen wird DATEX II v3 als JSON. Das schreibt der Leitfaden der Mobilithek für AFIR-Angebote vor; alle abonnierten Angebote liefern es.
