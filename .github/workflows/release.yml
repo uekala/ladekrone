@@ -40,7 +40,19 @@ jobs:
         run: |
           if gh release view "$TAG" >/dev/null 2>&1; then
             if [ "$GITHUB_REF_TYPE" = "tag" ]; then
-              echo "::notice::Release $TAG ist schon angelegt, nichts zu tun"
+              # Von Hand angelegt: Text und Titel nur ergänzen, wenn sie fehlen.
+              # Home Assistant zeigt den Text beim Update an.
+              body=$(gh release view "$TAG" --json body --jq .body)
+              name=$(gh release view "$TAG" --json name --jq .name)
+              args=()
+              [ -z "${body//[[:space:]]/}" ] && args+=(--notes-file notes.md)
+              { [ -z "$name" ] || [ "$name" = "$TAG" ]; } && args+=(--title "Ladekrone $VERSION")
+              if [ ${#args[@]} -gt 0 ]; then
+                gh release edit "$TAG" "${args[@]}"
+                echo "::notice::Release $TAG ergänzt (Text bzw. Titel aus CHANGELOG.md)"
+              else
+                echo "::notice::Release $TAG ist schon vollständig angelegt"
+              fi
               exit 0
             fi
             echo "::error::Release $TAG gibt es schon – erst die Version in manifest.json erhöhen"
