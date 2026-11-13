@@ -82,3 +82,17 @@ def test_break_even(result: dict) -> None:
     even = result["even"]
     assert even[0] == pytest.approx(9.99 / 0.2)
     assert even[1:] == [None, None, None]
+
+
+def test_new_data_arrives_without_reload(result: dict) -> None:
+    first, early, late, same, offline = result["refresh"]
+    assert (first["price"], first["meta"], first["failed"]) == (0.49, 1, 0)
+    assert first["tiles"] > 0
+    # Innerhalb von 15 Minuten kein neuer Abruf
+    assert (early["price"], early["meta"], early["tiles"]) == (0.49, 1, first["tiles"])
+    # Danach: neuer Datenstand, die Kacheln werden neu geladen
+    assert (late["price"], late["meta"], late["tiles"]) == (0.29, 2, 2 * first["tiles"])
+    # Unveränderter Datenstand: meta.json ja, Kacheln nein
+    assert (same["price"], same["meta"], same["tiles"]) == (0.29, 3, late["tiles"])
+    # Ohne Netz weiter mit dem bisherigen Stand statt Fehler
+    assert (offline["price"], offline["failed"], offline["tiles"]) == (0.29, 0, late["tiles"])

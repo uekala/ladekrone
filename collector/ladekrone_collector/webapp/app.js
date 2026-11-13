@@ -17,6 +17,9 @@ const dateShort = new Intl.DateTimeFormat("de-DE", {
 // Betreiber melden einen Tarif meist nur bei einer Änderung neu; wie in der
 // Integration gilt ein Preis erst nach 30 Tagen ohne Meldung als alt.
 const PRICE_STALE_MS = 30 * 24 * 3600 * 1000;
+// Bleibt die App lange offen (installiert im Hintergrund), soll ein neuer Datenstand
+// des Sammlers trotzdem ankommen: meta.json höchstens so lange wiederverwenden.
+const META_MAX_AGE_MS = 15 * 60 * 1000;
 const CONNECTORS = { ccs: "CCS", type2: "Typ 2", chademo: "CHAdeMO" };
 
 // ---------------------------------------------------------------------------
@@ -43,6 +46,7 @@ const store = {
 
 const state = {
   meta: null,
+  metaFetched: 0,
   tiles: new Map(),
   place: null, // {lat, lon, label, gps}
   filters: { power: 0, radius: 10, operator: "", connector: "any", tariff: "adhoc", charge: 0, ...store.get("filters", {}) },
@@ -130,15 +134,24 @@ async function getJson(path) {
 }
 
 async function loadMeta() {
-  if (state.meta) return state.meta;
-  const meta = await getJson("meta.json");
+  if (state.meta && Date.now() - state.metaFetched < META_MAX_AGE_MS) return state.meta;
+  let meta;
+  try {
+    meta = await getJson("meta.json");
+  } catch (error) {
+    if (state.meta) return state.meta; // ohne Netz mit dem bisherigen Stand weiter
+    throw error;
+  }
+  // Neuer Datenstand: geladene Kacheln verwerfen, sonst blieben alte Preise stehen.
+  if (state.meta && state.meta.generated !== meta.generated) state.tiles.clear();
   meta.tileSet = new Set(meta.tiles);
   state.meta = meta;
+  state.metaFetched = Date.now();
   $("stand").textContent = `Stand der Daten: ${dateLong.format(new Date(meta.generated))} Uhr.`;
   return meta;
 }
 
-async function loadTiles(lat, lon, radius) {
+export async function loadTiles(lat, lon, radius) {
   const meta = await loadMeta();
   const keys = tilesForRadius(lat, lon, radius, meta.tile_deg).filter((k) => meta.tileSet.has(k));
   const missing = keys.filter((k) => !state.tiles.has(k));

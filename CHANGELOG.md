@@ -8,6 +8,7 @@
 - **Karte.** Zeigt die Kosten der typischen Ladung, wenn die Option gesetzt ist. Zwei neue Optionen im Editor: „Kompakt“ (nur Preis, Station und Route) und „Höchstens so viele weitere Stationen“.
 - **Zwei Blueprints.** „Preisalarm“ benachrichtigt, sobald der Preis unter deine Grenze fällt. „Akku niedrig“ schickt die günstigste Station, wenn der Akku des Autos unter deine Grenze fällt. Beide stehen im README zum Importieren.
 - **Web-App.** Rangfolge nach den Kosten einer Ladung (20 bis 80 kWh), letzte Preisänderung je Station, Orte merken, Suche als Link teilen. Bei Vertrags- und Abotarifen zeigt sie den Abstand zum Ad-hoc-Preis und mit deiner Grundgebühr, ab wie vielen kWh im Monat sich der Tarif lohnt.
+- **Neuer Datenstand ohne Neuladen.** Bleibt die Web-App offen oder läuft sie installiert im Hintergrund, holt sie beim Zurückkehren spätestens nach 15 Minuten den aktuellen Datenstand. Bisher blieben bis zum Neuladen die Preise vom ersten Aufruf stehen, obwohl der Datensammler jetzt alle 6 Stunden neue liefert.
 - **Tastaturfokus besser sichtbar.** Im hellen Design umranden Karte und Web-App das per Tastatur gewählte Element jetzt violett statt gold. Der goldene Rahmen hatte auf Weiß zu wenig Kontrast.
 
 ## 0.8.0
