@@ -30,3 +30,27 @@ def test_no_literal_escape_between_rules(css: str) -> None:
 @pytest.mark.parametrize("css", STYLES.values(), ids=STYLES.keys())
 def test_braces_are_balanced(css: str) -> None:
     assert css.count("{") == css.count("}")
+
+
+def _luminance(color: str) -> float:
+    channels = [int(color[i : i + 2], 16) / 255 for i in (1, 3, 5)]
+    red, green, blue = (
+        c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4 for c in channels
+    )
+    return 0.2126 * red + 0.7152 * green + 0.0722 * blue
+
+
+def _contrast(first: str, second: str) -> float:
+    high, low = sorted((_luminance(first), _luminance(second)), reverse=True)
+    return (high + 0.05) / (low + 0.05)
+
+
+@pytest.mark.parametrize("css", STYLES.values(), ids=STYLES.keys())
+def test_focus_ring_is_visible_in_light_and_dark(css: str) -> None:
+    # Erster Treffer: helles Design, zweiter: dunkles. WCAG verlangt für den Fokusrahmen 3:1.
+    focus = re.findall(r"--focus:(#[0-9A-Fa-f]{6})", css)
+    paper = re.findall(r"--paper:(#[0-9A-Fa-f]{6})", css)
+    assert len(focus) == len(paper) == 2
+    assert "var(--focus)" in css
+    for ring, background in zip(focus, paper, strict=True):
+        assert _contrast(ring, background) >= 3

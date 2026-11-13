@@ -6,11 +6,13 @@
   --ink:#2B1B3D;--muted:#64547A;--paper:#FFFFFF;--wash:#F5F0FF;--line:#E4DAF7;
   --gold:#F7B500;--gold-deep:#B87A00;--link:#5B3FD0;--later:#EDE7FF;--later-ink:#4A2FB8;
   --mint:#18A57A;--danger:#B3261E;--field:#FFFFFF;
+  /* Fokusrahmen: Gold hat auf Weiß zu wenig Kontrast (unter 3:1), hell daher Violett */
+  --focus:#5B3FD0;
 }
 @media (prefers-color-scheme:dark){:root{
   --ink:#F4EEFF;--muted:#BFB2D6;--paper:#1F1630;--wash:#2A2040;--line:#3D3158;
   --gold-deep:#FFD54A;--link:#C3B3FF;--later:#33285A;--later-ink:#D8CCFF;--mint:#3FD4A3;
-  --danger:#FFB4AB;--field:#261C3A;
+  --danger:#FFB4AB;--field:#261C3A;--focus:#F7B500;
 }}
 
 *{box-sizing:border-box}
@@ -18,7 +20,7 @@ html{color-scheme:light dark;-webkit-text-size-adjust:100%}
 body{margin:0;background:var(--paper);color:var(--ink);
   font:1.0625rem/1.55 "Atkinson",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
 a{color:var(--link);text-underline-offset:.18em}
-:focus-visible{outline:3px solid var(--gold);outline-offset:3px;border-radius:8px}
+:focus-visible{outline:3px solid var(--focus);outline-offset:3px;border-radius:8px}
 .visually-hidden{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 [hidden]{display:none!important}
 

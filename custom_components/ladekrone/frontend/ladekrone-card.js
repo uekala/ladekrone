@@ -110,11 +110,12 @@ const STYLE = `
 :host{
   --ink:#2B1B3D;--muted:#64547A;--paper:#FFFFFF;--wash:#F5F0FF;--line:#E4DAF7;
   --gold:#F7B500;--gold-deep:#B87A00;--link:#5B3FD0;--later:#EDE7FF;--later-ink:#4A2FB8;
+  --focus:#5B3FD0;
   display:block;
 }
 :host([dark]){
   --ink:#F4EEFF;--muted:#BFB2D6;--paper:#1F1630;--wash:#2A2040;--line:#3D3158;
-  --gold-deep:#FFD54A;--link:#C3B3FF;--later:#33285A;--later-ink:#D8CCFF;
+  --gold-deep:#FFD54A;--link:#C3B3FF;--later:#33285A;--later-ink:#D8CCFF;--focus:#F7B500;
 }
 *{box-sizing:border-box}
 ha-card{display:block;background:var(--paper);color:var(--ink);border-radius:1.75rem;border:1px solid var(--line);
@@ -147,7 +148,7 @@ p{margin:0}
   font:700 .98rem/1.2 "Ladekrone Atkinson",sans-serif;text-decoration:none}
 .btn.primary{background:var(--gold);border-color:var(--gold);color:#2B1B3D}
 .btn.ghost{border-color:var(--line)}
-.btn:focus-visible,summary:focus-visible{outline:3px solid var(--gold);outline-offset:3px}
+.btn:focus-visible,summary:focus-visible{outline:3px solid var(--focus);outline-offset:3px}
 .later{margin-top:.7rem;border-radius:1.3rem;padding:.9rem 1.1rem;background:var(--later);color:var(--later-ink);
   display:grid;grid-template-columns:auto 1fr;gap:.15rem .85rem;align-items:center}
 .later svg{grid-row:span 2;width:1.6rem;height:1.6rem;fill:currentColor}
