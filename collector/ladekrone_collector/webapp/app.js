@@ -1,4 +1,4 @@
-import { evaluate, localTime, tilesForRadius, distanceKm } from "./pricing.js";
+import { evaluate, localTime, tilesForRadius, distanceKm, offerRank } from "./pricing.js";
 
 const DATA = "../v1/";
 const SHOWN = 30; // so viele Stationen höchstens in der Liste
@@ -45,9 +45,10 @@ const state = {
   meta: null,
   tiles: new Map(),
   place: null, // {lat, lon, label, gps}
-  filters: { power: 0, radius: 10, operator: "", connector: "any", tariff: "adhoc", ...store.get("filters", {}) },
+  filters: { power: 0, radius: 10, operator: "", connector: "any", tariff: "adhoc", charge: 0, ...store.get("filters", {}) },
   quarter: null,
   offline: false,
+  check: null, // Preise für den Tarif-Vergleich des Gewinners
 };
 
 // ---------------------------------------------------------------------------
@@ -234,6 +235,50 @@ function oldPriceDate(price) {
   return dateShort.format(updated);
 }
 
+function totalText(offer, short = false) {
+  if (offer.totalCost == null || !offer.chargeKwh) return "";
+  return short
+    ? `${whole.format(offer.chargeKwh)} kWh ≈ ${euro.format(offer.totalCost)} €`
+    : `${whole.format(offer.chargeKwh)} kWh kosten hier etwa ${euro.format(offer.totalCost)} €`;
+}
+
+function trendText(offer) {
+  if (offer.previousPrice == null || !offer.priceSince) return "";
+  const since = Date.parse(`${offer.priceSince}T12:00:00Z`);
+  const cents = Math.round((offer.price.kwh - offer.previousPrice) * 100);
+  if (Number.isNaN(since) || !cents) return "";
+  return `${cents > 0 ? "▲" : "▼"} Seit ${dateShort.format(since)} um ${whole.format(Math.abs(cents))} ct ${
+    cents > 0 ? "teurer" : "günstiger"
+  } (vorher ${euro.format(offer.previousPrice)} €)`;
+}
+
+/** Ab wie vielen kWh im Monat sich ein Tarif mit Grundgebühr gegenüber ad hoc lohnt. */
+export function breakEvenKwh(monthlyFee, adhocKwh, tariffKwh) {
+  const saving = adhocKwh - tariffKwh;
+  if (!(monthlyFee > 0) || !(saving > 1e-9)) return null;
+  return monthlyFee / saving;
+}
+
+function renderTariffCheck(offer, adhoc) {
+  if (offer.price.tariff === "adHoc" || !adhoc) return "";
+  const saving = adhoc.price.kwh - offer.price.kwh;
+  if (!(saving > 1e-9)) {
+    return `<aside class="check"><strong>Kein Vorteil gegenüber ad hoc</strong>
+      <p>Ohne Vertrag kostet es hier ${euro.format(adhoc.price.kwh)} €/kWh.</p></aside>`;
+  }
+  const fee = Number(store.get("monthlyFee", 0)) || 0;
+  const even = breakEvenKwh(fee, adhoc.price.kwh, offer.price.kwh);
+  const result = even === null
+    ? "Trag die Grundgebühr ein, dann siehst du, ab wann sich der Tarif lohnt."
+    : `Lohnt sich hier ab ${whole.format(Math.ceil(even))} kWh im Monat.`;
+  return `<aside class="check" aria-label="Lohnt sich der Tarif?">
+    <strong>${whole.format(Math.round(saving * 100))} ct je kWh günstiger als ad hoc (${euro.format(adhoc.price.kwh)} €)</strong>
+    <label>Grundgebühr im Monat
+      <input id="monthly-fee" type="number" inputmode="decimal" min="0" max="99" step="0.01" value="${fee || ""}" placeholder="z. B. 9,99"> €</label>
+    <p id="check-result">${esc(result)}</p>
+  </aside>`;
+}
+
 function priceNote(offer) {
   const kind = offer.price.tariff;
   if (kind && kind !== "adHoc") {
@@ -249,8 +294,10 @@ function renderWinner(offer) {
   return `<article class="winner" aria-labelledby="winner-price">
     <p class="label"><img src="icons/icon-192.png" alt="">Gerade am günstigsten</p>
     <p class="price" id="winner-price"><span class="num">${euro.format(offer.price.kwh)}</span><span class="unit">€/kWh</span></p>
+    ${totalText(offer) ? `<p class="total">${esc(totalText(offer))}</p>` : ""}
     ${priceNote(offer)}
     ${oldPriceDate(offer.price) ? `<p class="price-old">Preis vom ${esc(oldPriceDate(offer.price))}. Ob er noch gilt, ist offen.</p>` : ""}
+    ${trendText(offer) ? `<p class="trend">${esc(trendText(offer))}</p>` : ""}
     <p class="who">${esc(offer.operator || "Unbekanntes Ladenetz")}</p>
     <p class="addr">${esc([street, city].filter(Boolean).join(", "))}</p>
     <ul class="facts">${facts(offer).map((f) => `<li>${esc(f)}</li>`).join("")}</ul>
@@ -264,7 +311,7 @@ const CLOCK_ICON =
   '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 1 1 0 20 10 10 0 0 1 0-20Zm0 2a8 8 0 1 0 0 16 8 8 0 0 0 0-16Zm0 2.2a1 1 0 0 1 1 1v4.4l3 1.8a1 1 0 1 1-1 1.7l-3.5-2.1a1 1 0 0 1-.5-.9V7.2a1 1 0 0 1 1-1Z"/></svg>';
 
 function renderLater(outlook, current) {
-  if (!outlook || !current || outlook.start === null || outlook.offer.price.kwh >= current.price.kwh - 1e-9) return "";
+  if (!outlook || !current || outlook.start === null || offerRank(outlook.offer) >= offerRank(current) - 1e-9) return "";
   const o = outlook.offer;
   const { city } = splitAddress(o.address);
   const span = outlook.end ? ` bis ${when(outlook.end)}` : "";
@@ -289,11 +336,13 @@ function renderList(offers) {
         <span class="sub">${esc(head)}</span>
         ${o.until ? `<span class="change">${esc(untilText(o))}</span>` : ""}
         ${oldPriceDate(o.price) ? `<span class="change old">Preis vom ${esc(oldPriceDate(o.price))}</span>` : ""}
+        ${totalText(o, true) ? `<span class="change old">${esc(totalText(o, true))}</span>` : ""}
       </summary>
       <div class="detail">
         <p>${esc([street, city].filter(Boolean).join(", "))}</p>
         <p>${esc(facts(o).slice(1).join(", "))}</p>
         ${fees ? `<p>${esc(fees)}</p>` : ""}
+        ${trendText(o) ? `<p>${esc(trendText(o))}</p>` : ""}
         <a class="btn" href="${routeUrl(o.latitude, o.longitude)}" target="_blank" rel="noopener">Route starten</a>
       </div>
     </details></li>`;
@@ -337,6 +386,8 @@ function syncFilterControls() {
   $("f-radius").value = String(f.radius);
   $("f-connector").value = f.connector;
   $("f-tariff").value = f.tariff || "adhoc";
+  $("f-charge").value = String(f.charge || 0);
+  $("f-charge").classList.toggle("set", (f.charge || 0) > 0);
   $("f-power").classList.toggle("set", f.power > 0);
   $("f-operator").classList.toggle("set", Boolean(f.operator));
   $("f-connector").classList.toggle("set", f.connector !== "any");
@@ -377,8 +428,10 @@ async function render() {
     connector: f.connector,
     operators: f.operator ? [f.operator] : [],
     tariff: f.tariff || "adhoc",
+    chargeKwh: f.charge || 0,
   };
   const { offers, outlook, count } = evaluate(loaded.stations, place.lat, place.lon, f.radius, filters, now, SHOWN + 1);
+  renderPlaceTools();
   updateOperatorOptions(loaded.stations);
   if (loaded.failed) note("Ein Teil der Umgebung konnte nicht geladen werden. Die Liste ist vielleicht unvollständig.", "error");
   else if (state.offline) note("Du bist offline. Angezeigt werden die zuletzt geladenen Preise.");
@@ -390,11 +443,128 @@ async function render() {
     $("summary").textContent = "";
     return;
   }
-  $("winner").innerHTML = renderWinner(offers[0]);
+  let adhoc = null;
+  if (offers[0].price.tariff !== "adHoc") {
+    // Zum Vergleich: der Ad-hoc-Preis an derselben Station
+    const plain = evaluate(loaded.stations, place.lat, place.lon, f.radius, { ...filters, tariff: "adhoc", chargeKwh: 0 }, now, 0);
+    adhoc = plain.offers.find((o) => o.stationId === offers[0].stationId) || null;
+  }
+  state.check = adhoc ? { adhoc: adhoc.price.kwh, tariff: offers[0].price.kwh } : null;
+  $("winner").innerHTML = renderWinner(offers[0]) + renderTariffCheck(offers[0], adhoc);
   $("later").innerHTML = renderLater(outlook, offers[0]);
   $("more").innerHTML = renderList(offers.slice(1, SHOWN + 1));
   $("summary").textContent =
     `${whole.format(offers.length)} von ${whole.format(count)} passenden Stationen im Umkreis von ${f.radius} km melden gerade einen Preis.`;
+}
+
+// ---------------------------------------------------------------------------
+// Merken und Teilen
+// ---------------------------------------------------------------------------
+
+const MAX_FAVORITES = 8;
+const samePlace = (a, b) => Math.abs(a.lat - b.lat) < 1e-4 && Math.abs(a.lon - b.lon) < 1e-4;
+
+function favorites() {
+  const list = store.get("favorites", []);
+  return Array.isArray(list) ? list.filter((p) => p && typeof p.lat === "number" && typeof p.lon === "number") : [];
+}
+
+function renderFavorites() {
+  const list = favorites();
+  const box = $("favorites");
+  box.hidden = !list.length;
+  box.innerHTML = list
+    .map((p, i) => `<button class="chip" type="button" data-favorite="${i}">${esc(p.label)}</button>`)
+    .join("");
+}
+
+function renderPlaceTools() {
+  const place = state.place;
+  const star = $("favorite");
+  // Der eigene Standort wandert mit; merken lässt sich nur ein fester Ort.
+  star.hidden = !place || Boolean(place.gps);
+  if (place && !place.gps) {
+    const saved = favorites().some((p) => samePlace(p, place));
+    star.setAttribute("aria-pressed", String(saved));
+    star.textContent = saved ? "★ Gemerkt" : "☆ Merken";
+  }
+  $("share").hidden = !place;
+}
+
+/** Adresse, die genau diese Suche wieder öffnet. Koordinaten auf etwa 100 m gerundet. */
+export function shareUrl(base, place, filters) {
+  const url = new URL(base);
+  url.search = "";
+  url.hash = "";
+  const q = url.searchParams;
+  q.set("lat", place.lat.toFixed(3));
+  q.set("lon", place.lon.toFixed(3));
+  if (place.label && !place.gps) q.set("ort", place.label);
+  if (filters.radius !== 10) q.set("r", String(filters.radius));
+  if (filters.power > 0) q.set("kw", String(filters.power));
+  if (filters.operator) q.set("netz", filters.operator);
+  if (filters.connector !== "any") q.set("stecker", filters.connector);
+  if ((filters.tariff || "adhoc") !== "adhoc") q.set("tarif", filters.tariff);
+  if (filters.charge > 0) q.set("kwh", String(filters.charge));
+  return url.toString();
+}
+
+/** Liest eine geteilte Suche aus der Adresse; null, wenn keine gültige darin steht. */
+export function parseShared(search) {
+  const q = new URLSearchParams(search);
+  const lat = Number(q.get("lat"));
+  const lon = Number(q.get("lon"));
+  if (!q.has("lat") || !q.has("lon") || !(Math.abs(lat) <= 90) || !(Math.abs(lon) <= 180)) return null;
+  const pick = (key, allowed, fallback) => (allowed.includes(q.get(key)) ? q.get(key) : fallback);
+  return {
+    place: { lat, lon, label: (q.get("ort") || "Geteilte Suche").slice(0, 80), gps: false },
+    filters: {
+      radius: Number(pick("r", ["5", "10", "25", "50"], "10")),
+      power: Number(pick("kw", ["0", "22", "50", "150"], "0")),
+      operator: (q.get("netz") || "").slice(0, 80),
+      connector: pick("stecker", ["any", "ccs", "type2", "chademo"], "any"),
+      tariff: pick("tarif", ["adhoc", "contract", "subscription"], "adhoc"),
+      charge: Number(pick("kwh", ["0", "20", "40", "60", "80"], "0")),
+    },
+  };
+}
+
+async function share() {
+  if (!state.place) return;
+  const url = shareUrl(location.href, state.place, state.filters);
+  const title = `Ladepreise: ${state.place.label}`;
+  try {
+    if (navigator.share) {
+      await navigator.share({ title, url });
+      return;
+    }
+    await navigator.clipboard.writeText(url);
+    note("Link kopiert.");
+  } catch (error) {
+    if (error && error.name === "AbortError") return;
+    note(`Zum Teilen diesen Link kopieren: ${url}`);
+  }
+}
+
+function setupPlaceTools() {
+  $("share").addEventListener("click", share);
+  $("favorite").addEventListener("click", () => {
+    const place = state.place;
+    if (!place || place.gps) return;
+    const list = favorites();
+    const index = list.findIndex((p) => samePlace(p, place));
+    if (index >= 0) list.splice(index, 1);
+    else list.unshift({ lat: place.lat, lon: place.lon, label: place.label, gps: false });
+    store.set("favorites", list.slice(0, MAX_FAVORITES));
+    renderFavorites();
+    renderPlaceTools();
+  });
+  $("favorites").addEventListener("click", (event) => {
+    const button = event.target.closest("[data-favorite]");
+    const place = button && favorites()[Number(button.dataset.favorite)];
+    if (place) setPlace(place, true);
+  });
+  renderFavorites();
 }
 
 // ---------------------------------------------------------------------------
@@ -526,9 +696,19 @@ function setupFilters() {
   bind("f-operator", "operator", String);
   bind("f-connector", "connector", String);
   bind("f-tariff", "tariff", String);
+  bind("f-charge", "charge", Number);
+  $("winner").addEventListener("input", (event) => {
+    if (event.target.id !== "monthly-fee" || !state.check) return;
+    const fee = Number(event.target.value.replace(",", ".")) || 0;
+    store.set("monthlyFee", fee);
+    const even = breakEvenKwh(fee, state.check.adhoc, state.check.tariff);
+    $("check-result").textContent = even === null
+      ? "Trag die Grundgebühr ein, dann siehst du, ab wann sich der Tarif lohnt."
+      : `Lohnt sich hier ab ${whole.format(Math.ceil(even))} kWh im Monat.`;
+  });
   $("winner").addEventListener("click", (event) => {
     if (event.target.closest("[data-reset]")) {
-      Object.assign(state.filters, { power: 0, operator: "", connector: "any", tariff: "adhoc" });
+      Object.assign(state.filters, { power: 0, operator: "", connector: "any", tariff: "adhoc", charge: 0 });
     } else {
       const button = event.target.closest("[data-radius]");
       if (!button) return;
@@ -570,6 +750,7 @@ async function start() {
   setupSearch();
   setupFilters();
   setupInstall();
+  setupPlaceTools();
   $("locate").addEventListener("click", locate);
   loadMeta().catch(() => note("Die Preise konnten nicht geladen werden. Prüf deine Verbindung.", "error"));
 
@@ -580,7 +761,14 @@ async function start() {
   } catch {
     granted = false;
   }
-  if (granted) locate();
+  const shared = parseShared(location.search);
+  if (shared) {
+    // Eine geteilte Suche gilt nur für diesen Besuch und überschreibt nichts Gemerktes.
+    Object.assign(state.filters, shared.filters);
+    state.place = shared.place;
+    history.replaceState(null, "", location.pathname);
+    render();
+  } else if (granted) locate();
   else if (saved && typeof saved.lat === "number") setPlace(saved, false);
 
   // Preise wechseln zur Viertelstunde (z. B. Nachttarif): dann neu rechnen.
@@ -592,4 +780,4 @@ async function start() {
   });
 }
 
-start();
+if (typeof document !== "undefined") start();

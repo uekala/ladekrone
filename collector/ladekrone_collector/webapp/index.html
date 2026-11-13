@@ -45,10 +45,18 @@
     </div>
   </div>
 
+  <div class="favorites" id="favorites" aria-label="Gemerkte Orte" hidden></div>
+
   <p class="note" id="note" role="status" hidden></p>
 
   <section class="results" id="results" aria-labelledby="place-title" hidden>
-    <h2 class="place" id="place-title"></h2>
+    <div class="place-row">
+      <h2 class="place" id="place-title"></h2>
+      <div class="place-tools">
+        <button class="chip" id="favorite" type="button" aria-pressed="false" hidden>☆ Merken</button>
+        <button class="chip" id="share" type="button" hidden>Teilen</button>
+      </div>
+    </div>
     <div class="filters" aria-label="Filter">
       <select id="f-power" aria-label="Mindestleistung">
         <option value="0">Alle Leistungen</option>
@@ -75,6 +83,13 @@
         <option value="adhoc">Ad-hoc-Preis</option>
         <option value="contract">Vertragstarif, wenn veröffentlicht</option>
         <option value="subscription">Abo, wenn veröffentlicht</option>
+      </select>
+      <select id="f-charge" aria-label="Rangfolge">
+        <option value="0">Nach kWh-Preis</option>
+        <option value="20">Kosten für 20 kWh</option>
+        <option value="40">Kosten für 40 kWh</option>
+        <option value="60">Kosten für 60 kWh</option>
+        <option value="80">Kosten für 80 kWh</option>
       </select>
     </div>
     <div id="winner"></div>

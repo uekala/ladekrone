@@ -9,7 +9,7 @@ const { stations, cases } = JSON.parse(readFileSync(inputPath, "utf8"));
 const results = cases.map(({ lat, lon, radius, filters, now }) => {
   const { offers, outlook, count } = evaluate(stations, lat, lon, radius, filters, now);
   return {
-    offers: offers.map((o) => [o.stationId, o.price.kwh, o.distanceKm, o.until, o.nextPrice, o.price.minuteFee, o.price.sessionFee]),
+    offers: offers.map((o) => [o.stationId, o.price.kwh, o.distanceKm, o.until, o.nextPrice, o.price.minuteFee, o.price.sessionFee, o.totalCost, o.previousPrice, o.priceSince]),
     outlook: outlook && [outlook.offer.stationId, outlook.offer.price.kwh, outlook.start, outlook.end],
     count,
   };

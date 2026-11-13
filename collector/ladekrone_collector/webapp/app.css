@@ -125,3 +125,19 @@ h1{font:750 clamp(2rem,8.5vw,2.9rem)/1.05 "Bricolage",sans-serif;letter-spacing:
 .price-note strong{color:var(--ink)}
 .price-old{margin:-.4rem 0 .65rem;color:var(--ink);font-size:.94rem;line-height:1.4;font-weight:700}
 .list .change.old{color:var(--ink);font-weight:700}
+
+/* Merken, Teilen, Kosten, Verlauf, Tarif-Vergleich */
+.place-row{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:.4rem .8rem;margin:1.4rem 0 .7rem}
+.place-row .place{margin:0}
+.place-tools,.favorites{display:flex;flex-wrap:wrap;gap:.4rem}
+.favorites{margin:.9rem 0 0}
+.chip{min-height:2.6rem;padding:.4rem .95rem;border-radius:999px;border:1.5px solid var(--line);background:none;
+  color:var(--ink);font:inherit;font-size:.98rem;cursor:pointer}
+.chip[aria-pressed="true"]{border-color:var(--ink);font-weight:700}
+.total{margin:-.2rem 0 .5rem;color:var(--ink);font-size:1.02rem;font-weight:700}
+.trend{margin:-.2rem 0 .6rem;color:var(--ink);font-size:.94rem;line-height:1.4}
+.check{margin:.8rem 0 0;padding:.9rem 1rem;border-radius:1.1rem;border:1.5px solid var(--line)}
+.check p{margin:.4rem 0 0;color:var(--muted)}
+.check label{display:block;margin:.6rem 0 0}
+.check input{width:6.5rem;min-height:2.6rem;margin:0 .3rem;padding:.3rem .6rem;border-radius:.7rem;
+  border:1.5px solid var(--line);background:var(--field);color:var(--ink);font:inherit}

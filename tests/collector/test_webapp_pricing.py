@@ -160,6 +160,27 @@ def _synthetic() -> list[dict]:
             o="Tesla",
         ),
         _station("broken", 0.001, [{**DC, "r": [5]}], [{"p": [{"t": "kwh", "v": 0.1}]}]),
+        _station(
+            "capped",
+            0.011,
+            [{**DC, "kw": 50}],
+            [{"p": [{"t": "kwh", "v": 0.44}, {"t": "min", "v": 0.2, "f": 20, "cap": 3.0}]}],
+        ),
+        _station(
+            "history",
+            0.013,
+            [DC],
+            [{"p": [{"t": "kwh", "v": 0.57}]}],
+            h=[["2026-09-01", 0.52], ["2026-10-01", 0.57]],
+        ),
+        _station("history-stale", 0.014, [DC], [{"p": [{"t": "kwh", "v": 0.58}]}], h=[["x"], 7]),
+        _station(
+            "history-other",
+            0.016,
+            [DC],
+            [{"p": [{"t": "kwh", "v": 0.56}]}],
+            h=[["2026-09-01", 0.5], ["2026-10-01", 0.6]],
+        ),
         *_holiday_stations(),
     ]
 
@@ -247,6 +268,7 @@ def _python(stations: list[dict], case: dict) -> dict:
         current=raw.get("current", "any"),
         connector=raw.get("connector", "any"),
         operators=tuple(raw.get("operators", ())),
+        charge_kwh=raw.get("chargeKwh", 0),
     )
     now = datetime.fromtimestamp(case["now"] / 1000, UTC)
     nearby = stations_in_radius(stations, lat, lon, radius)
@@ -269,6 +291,9 @@ def _python(stations: list[dict], case: dict) -> dict:
                 o.next_price,
                 o.price.minute_fee,
                 o.price.session_fee,
+                o.total_cost,
+                o.previous_price,
+                o.price_since,
             ]
             for o in offers
         ],
@@ -300,6 +325,9 @@ FILTERS = [
     {"connector": "ccs", "minPowerKw": 150},
     {"operators": ["tesla"]},
     {"operators": ["enbw", "stadtwerke"]},
+    {"chargeKwh": 10},
+    {"chargeKwh": 40, "minPowerKw": 50},
+    {"chargeKwh": 75},
 ]
 
 
@@ -327,7 +355,7 @@ def test_webapp_matches_integration(tmp_path: Path) -> None:
     )
     js_results = json.loads(run.stdout)
     assert len(js_results) == len(cases)
-    checked_changes = 0
+    checked_changes = checked_costs = checked_history = 0
     for case, js in zip(cases, js_results, strict=True):
         py = _python(stations, case)
         assert js["count"] == py["count"], case
@@ -335,7 +363,16 @@ def test_webapp_matches_integration(tmp_path: Path) -> None:
         for js_offer, py_offer in zip(js["offers"], py["offers"], strict=True):
             assert js_offer[1] == pytest.approx(py_offer[1], abs=1e-12), case
             assert js_offer[2] == pytest.approx(py_offer[2], abs=1e-9), case
-            assert js_offer[3:] == py_offer[3:], (case, js_offer, py_offer)
+            assert js_offer[3:7] == py_offer[3:7], (case, js_offer, py_offer)
+            if py_offer[7] is None:
+                assert js_offer[7] is None, case
+            else:
+                assert js_offer[7] == pytest.approx(py_offer[7], abs=1e-9), case
+                checked_costs += 1
+            assert js_offer[8:] == py_offer[8:], (case, js_offer, py_offer)
+            checked_history += js_offer[8] is not None
             checked_changes += js_offer[3] is not None
         assert js["outlook"] == py["outlook"], case
     assert checked_changes > 20  # die Zeitfenster wurden wirklich geprüft
+    assert checked_costs > 100  # ebenso die Ladekosten
+    assert checked_history > 20  # und der Preisverlauf

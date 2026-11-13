@@ -305,16 +305,49 @@ export function currentPrice(rate, local, state = null) {
   } else {
     return null;
   }
-  const price = { kwh: energy, updated: rate.u ?? null, minuteFee: null, minuteFeeFrom: null, sessionFee: null };
+  const price = { kwh: energy, updated: rate.u ?? null, minuteFee: null, minuteFeeFrom: null, minuteFeeCap: null, sessionFee: null };
   const minute = active.filter((c) => c.t === "min");
   if (minute.length) {
     const fee = minute.reduce((a, b) => ((b.f || 0) < (a.f || 0) ? b : a));
     price.minuteFee = fee.v;
     price.minuteFeeFrom = fee.f ?? null;
+    price.minuteFeeCap = fee.cap ?? null;
   }
   const session = active.filter((c) => c.t === "base" || c.t === "flat").map((c) => c.v);
   if (session.length) price.sessionFee = session.reduce((a, b) => a + b, 0);
   return price;
+}
+
+/** Kosten einer Ladung mit kwh: Energie, Startgebühr und Zeitgebühr (wie charge_cost). */
+export function chargeCost(price, kwh, powerKw) {
+  let total = price.kwh * kwh + (price.sessionFee || 0);
+  if (price.minuteFee && powerKw && powerKw > 0) {
+    const minutes = (kwh / powerKw) * 60;
+    let fee = Math.max(0, minutes - (price.minuteFeeFrom || 0)) * price.minuteFee;
+    if (price.minuteFeeCap != null) fee = Math.min(fee, price.minuteFeeCap);
+    total += fee;
+  }
+  return total;
+}
+
+const rankOf = (price, group, filters) =>
+  filters.chargeKwh > 0 ? chargeCost(price, filters.chargeKwh, group.kw) : price.kwh;
+
+/** Sortierwert eines Angebots: Kosten der Ladung, sonst der kWh-Preis. */
+export const offerRank = (offer) => (offer.totalCost != null ? offer.totalCost : offer.price.kwh);
+
+/** Vorheriger Preis und Datum der Änderung, wenn der Verlauf zum Preis passt (wie last_change). */
+export function lastChange(station, price) {
+  const history = station.h;
+  if (price.tariff !== "adHoc" || !Array.isArray(history) || history.length < 2) return [null, null];
+  const before = history[history.length - 2];
+  const last = history[history.length - 1];
+  if (!Array.isArray(before) || !Array.isArray(last)) return [null, null];
+  const previous = Number(before[1]);
+  const current = Number(last[1]);
+  if (!Number.isFinite(previous) || !Number.isFinite(current)) return [null, null];
+  if (Math.abs(current - price.kwh) > 1e-9 || previous === current) return [null, null];
+  return [previous, String(last[0])];
 }
 
 // --------------------------------------------------------------------------
@@ -346,12 +379,13 @@ export function normalizeFilters(filters = {}) {
     connector: filters.connector || "any",
     operators: filters.operators || [],
     tariff: filters.tariff || "adhoc",
+    chargeKwh: Number(filters.chargeKwh) > 0 ? Number(filters.chargeKwh) : 0,
   };
 }
 
 const TARIFF_POLICY = { contract: "contract", subscription: "subscription" };
 
-function bestRate(rates, indexes, local, state, policy) {
+function bestRate(rates, indexes, local, state, policy, rank) {
   let best = null;
   for (const index of indexes || []) {
     if (!(index >= 0 && index < rates.length)) continue;
@@ -361,7 +395,7 @@ function bestRate(rates, indexes, local, state, policy) {
     if (price === null) continue;
     price.tariff = rate.pol || "adHoc";
     price.tariffName = rate.n || null;
-    if (best === null || price.kwh < best.kwh) best = price;
+    if (best === null || rank(price) < rank(best)) best = price;
   }
   return best;
 }
@@ -374,19 +408,22 @@ export function bestOffer(station, lat, lon, filters, local) {
   let best = null;
   for (const group of station.g || []) {
     if (!groupMatches(group, filters)) continue;
-    let price = prefer ? bestRate(station.x || [], group.x, local, state, prefer) : null;
-    if (price === null) price = bestRate(station.r || [], group.r, local, state, null);
+    const rank = (candidate) => rankOf(candidate, group, filters);
+    let price = prefer ? bestRate(station.x || [], group.x, local, state, prefer, rank) : null;
+    if (price === null) price = bestRate(station.r || [], group.r, local, state, null, rank);
     if (price === null) continue;
+    const value = rank(price);
     if (
       best === null ||
-      price.kwh < best.price.kwh ||
-      (price.kwh === best.price.kwh && (group.kw || 0) > (best.group.kw || 0))
+      value < best.value ||
+      (value === best.value && (group.kw || 0) > (best.group.kw || 0))
     ) {
-      best = { price, group };
+      best = { price, group, value };
     }
   }
   if (best === null) return null;
-  const { price, group } = best;
+  const { price, group, value } = best;
+  const [previousPrice, priceSince] = lastChange(station, price);
   return {
     stationId: station.id,
     operator: station.o || station.b || null,
@@ -401,6 +438,10 @@ export function bestOffer(station, lat, lon, filters, local) {
     points: group.n || 0,
     until: null,
     nextPrice: null,
+    chargeKwh: filters.chargeKwh,
+    totalCost: filters.chargeKwh > 0 ? value : null,
+    previousPrice,
+    priceSince,
   };
 }
 
@@ -429,7 +470,7 @@ export function findOffers(stations, lat, lon, radiusKm, filters, nowMs) {
     const offer = safe(() => bestOffer(station, lat, lon, filters, local));
     if (offer) offers.push(offer);
   }
-  offers.sort((a, b) => round4(a.price.kwh) - round4(b.price.kwh) || a.distanceKm - b.distanceKm);
+  offers.sort((a, b) => round4(offerRank(a)) - round4(offerRank(b)) || a.distanceKm - b.distanceKm);
   return offers;
 }
 
@@ -492,7 +533,7 @@ export function cheapestAhead(nearby, current, lat, lon, filters, nowMs, locals)
   for (const local of locals) {
     for (const station of dependent) {
       const offer = safe(() => bestOffer(station, lat, lon, filters, local));
-      if (offer && (best === null || offer.price.kwh < best.price.kwh - 1e-9)) {
+      if (offer && (best === null || offerRank(offer) < offerRank(best) - 1e-9)) {
         best = offer;
         start = local.t;
       }
