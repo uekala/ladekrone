@@ -1,5 +1,11 @@
 # Änderungen
 
+## 0.9.0
+
+- **Echte Ladekosten.** Neue Option „Typische Ladung“ (kWh): Die Rangfolge richtet sich dann nach dem, was diese Ladung kostet – Energie, Startgebühr und Zeitgebühr – statt nur nach dem kWh-Preis. Die Angebote tragen dazu `total_cost` und `effective_price`. Die Ladedauer für die Zeitgebühr wird aus der Leistung des Ladepunkts geschätzt.
+- **Binärsensor „Jetzt günstig“.** Mit der neuen Option „Preisgrenze“ ist er an, solange der günstigste Preis höchstens so hoch ist. Ohne Preisgrenze ist er an, solange es in den nächsten 24 Stunden nicht günstiger wird.
+- **Zwei Blueprints.** „Preisalarm“ benachrichtigt, sobald der Preis unter deine Grenze fällt. „Akku niedrig“ schickt die günstigste Station, wenn der Akku des Autos unter deine Grenze fällt. Beide stehen im README zum Importieren.
+
 ## 0.8.0
 
 - **Alte Preise erkennbar.** Ein Preis gilt erst als veraltet (`price_freshness: stale`), wenn der Betreiber ihn seit mehr als 30 Tagen nicht neu gemeldet hat. Bisher lag die Grenze bei 48 Stunden; weil viele Betreiber einen Tarif nur bei einer Änderung neu melden, galt damit fast jeder Preis als veraltet. Karte und Web-App zeigen bei solchen Preisen das Datum der letzten Meldung („Preis vom 03.03.2026“), am günstigsten Angebot und in der Liste.
