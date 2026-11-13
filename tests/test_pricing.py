@@ -11,6 +11,7 @@ import pytest
 from custom_components.ladekrone.pricing import (
     LOCAL_TZ,
     Filters,
+    charge_cost,
     current_price,
     find_offers,
     period_matches,
@@ -238,3 +239,69 @@ def test_networks_from_entity_match_by_words(network: str, operator: str, expect
     filters = Filters(networks=(network,), only_listed=True)
     now = _local(12).astimezone(UTC)
     assert bool(find_offers([station], *HOME, 5, filters, now)) is expected
+
+
+# --------------------------------------------------------------------------
+# Rangfolge nach den Kosten einer Ladung
+# --------------------------------------------------------------------------
+
+
+def _plain_station(sid: str, offset: float, kw: float, components: list[dict]) -> dict:
+    return {
+        "id": sid,
+        "la": HOME[0] + offset,
+        "lo": HOME[1] + offset,
+        "o": sid,
+        "g": [{"kw": kw, "c": "dc", "k": ["ccs"], "n": 2, "r": [0]}],
+        "r": [{"p": components}],
+    }
+
+
+COST_STATIONS = [
+    # billig je kWh, aber 5 € Startgebühr
+    _plain_station("start", 0.001, 150, [{"t": "kwh", "v": 0.39}, {"t": "base", "v": 5.0}]),
+    # etwas teurer je kWh, sonst nichts
+    _plain_station("plain", 0.002, 150, [{"t": "kwh", "v": 0.49}]),
+    # langsam: 40 kWh an 50 kW dauern 48 min, ab Minute 30 kostet es 0,20 €/min, höchstens 2 €
+    _plain_station(
+        "slow", 0.003, 50, [{"t": "kwh", "v": 0.45}, {"t": "min", "v": 0.2, "f": 30, "cap": 2.0}]
+    ),
+]
+
+
+def test_charge_cost_adds_session_and_time_fee() -> None:
+    now = _local(12)
+    start = current_price(COST_STATIONS[0]["r"][0], now)
+    slow = current_price(COST_STATIONS[2]["r"][0], now)
+    assert charge_cost(start, 40, 150) == pytest.approx(0.39 * 40 + 5.0)
+    # 18 Minuten über der Freizeit wären 3,60 €, die Obergrenze kappt auf 2 €
+    assert charge_cost(slow, 40, 50) == pytest.approx(0.45 * 40 + 2.0)
+    # 20 kWh dauern 24 min: noch in der Freizeit
+    assert charge_cost(slow, 20, 50) == pytest.approx(0.45 * 20)
+    # ohne bekannte Leistung keine geschätzte Zeitgebühr
+    assert charge_cost(slow, 40, None) == pytest.approx(0.45 * 40)
+
+
+def test_ranking_by_kwh_price_is_the_default() -> None:
+    offers = find_offers(COST_STATIONS, *HOME, 5, Filters(), _local(12))
+    assert [o.station_id for o in offers] == ["start", "slow", "plain"]
+    assert all(o.total_cost is None for o in offers)
+    assert "total_cost" not in offers[0].as_dict()
+
+
+def test_ranking_by_charge_cost() -> None:
+    offers = find_offers(COST_STATIONS, *HOME, 5, Filters(charge_kwh=40), _local(12))
+    # 19,60 € < 20,00 € < 20,60 €
+    assert [o.station_id for o in offers] == ["plain", "slow", "start"]
+    assert [round(o.total_cost, 2) for o in offers] == [19.6, 20.0, 20.6]
+    data = offers[2].as_dict()
+    assert data["price"] == 0.39
+    assert data["total_cost"] == 20.6
+    assert data["effective_price"] == 0.515
+    assert data["charge_kwh"] == 40
+
+
+def test_small_charge_makes_session_fee_weigh_more() -> None:
+    big = find_offers(COST_STATIONS, *HOME, 5, Filters(charge_kwh=80), _local(12))
+    # bei 80 kWh lohnt sich der niedrige kWh-Preis trotz Startgebühr
+    assert big[0].station_id == "start"

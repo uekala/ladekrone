@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import math
 import re
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, time, timedelta
 from functools import lru_cache
@@ -50,6 +51,9 @@ class Filters:
     only_listed: bool = False
     # adhoc | contract | subscription. Zusatztarif nur, wo der Betreiber ihn veröffentlicht.
     tariff: str = "adhoc"
+    # Größe einer typischen Ladung in kWh. Größer 0: Rangfolge nach den Kosten
+    # dieser Ladung (Energie, Startgebühr, Zeitgebühr) statt nach dem kWh-Preis.
+    charge_kwh: float = 0
 
 
 @dataclass
@@ -83,6 +87,13 @@ class Offer:
     points: int = 0
     until: datetime | None = None
     next_price: float | None = None
+    charge_kwh: float = 0
+    total_cost: float | None = None
+
+    @property
+    def rank(self) -> float:
+        """Sortierwert: Kosten der Ladung, sonst der kWh-Preis."""
+        return self.total_cost if self.total_cost is not None else self.price.kwh
 
     def as_dict(self) -> dict[str, Any]:
         data: dict[str, Any] = {
@@ -102,6 +113,10 @@ class Offer:
             data["minute_fee_from"] = self.price.minute_fee_from
         if self.price.session_fee is not None:
             data["session_fee"] = round(self.price.session_fee, 2)
+        if self.total_cost is not None and self.charge_kwh > 0:
+            data["charge_kwh"] = self.charge_kwh
+            data["total_cost"] = round(self.total_cost, 2)
+            data["effective_price"] = round(self.total_cost / self.charge_kwh, 3)
         data["tariff"] = self.price.tariff
         if self.price.tariff_name:
             data["tariff_name"] = self.price.tariff_name
@@ -297,6 +312,29 @@ def current_price(rate: dict, local: datetime, state: str | None = None) -> Pric
     return price
 
 
+def charge_cost(price: Price, kwh: float, power_kw: float | None) -> float:
+    """Kosten einer Ladung mit ``kwh``: Energie, Startgebühr und Zeitgebühr.
+
+    Die Ladedauer wird aus der Leistung des Ladepunkts geschätzt; das Auto kann
+    langsamer laden. Die Zeitgebühr zählt erst ab ihrer Freiminute und höchstens
+    bis zu ihrer Obergrenze.
+    """
+    total = price.kwh * kwh + (price.session_fee or 0)
+    if price.minute_fee and power_kw and power_kw > 0:
+        minutes = kwh / power_kw * 60
+        fee = max(0.0, minutes - (price.minute_fee_from or 0)) * price.minute_fee
+        if price.minute_fee_cap is not None:
+            fee = min(fee, price.minute_fee_cap)
+        total += fee
+    return total
+
+
+def _rank(price: Price, group: dict, filters: Filters) -> float:
+    if filters.charge_kwh > 0:
+        return charge_cost(price, filters.charge_kwh, group.get("kw"))
+    return price.kwh
+
+
 # --------------------------------------------------------------------------
 # Suche
 # --------------------------------------------------------------------------
@@ -379,6 +417,7 @@ def _best_indexed(
     local: datetime,
     state: str | None,
     policy: str | None,
+    rank: Callable[[Price], float],
 ) -> Price | None:
     """Günstigster gerade gültiger Tarif aus ``indexes``. ``policy`` filtert ``pol``."""
     best: Price | None = None
@@ -393,7 +432,7 @@ def _best_indexed(
             continue
         price.tariff = rate.get("pol") or "adHoc"
         price.tariff_name = rate.get("n")
-        if best is None or price.kwh < best.kwh:
+        if best is None or rank(price) < rank(best):
             best = price
     return best
 
@@ -410,28 +449,35 @@ def best_offer(
         return None
     prefer = TARIFF_POLICIES.get(filters.tariff)
     state = station.get("bl")
-    best: tuple[Price, dict] | None = None
+    best: tuple[Price, dict, float] | None = None
     for group in station.get("g", []):
         if not _group_matches(group, filters):
             continue
         price = None
+
+        def rank(candidate: Price, group: dict = group) -> float:
+            return _rank(candidate, group, filters)
+
         if prefer:
             price = _best_indexed(
-                station.get("x") or [], group.get("x") or [], local, state, prefer
+                station.get("x") or [], group.get("x") or [], local, state, prefer, rank
             )
         if price is None:
-            price = _best_indexed(station.get("r") or [], group.get("r") or [], local, state, None)
+            price = _best_indexed(
+                station.get("r") or [], group.get("r") or [], local, state, None, rank
+            )
         if price is None:
             continue
+        value = rank(price)
         if (
             best is None
-            or price.kwh < best[0].kwh
-            or (price.kwh == best[0].kwh and (group.get("kw") or 0) > (best[1].get("kw") or 0))
+            or value < best[2]
+            or (value == best[2] and (group.get("kw") or 0) > (best[1].get("kw") or 0))
         ):
-            best = (price, group)
+            best = (price, group, value)
     if best is None:
         return None
-    price, group = best
+    price, group, value = best
     return Offer(
         station_id=station["id"],
         operator=station.get("o") or station.get("b"),
@@ -444,6 +490,8 @@ def best_offer(
         current=group.get("c"),
         connectors=list(group.get("k", [])),
         points=group.get("n", 0),
+        charge_kwh=filters.charge_kwh,
+        total_cost=value if filters.charge_kwh > 0 else None,
     )
 
 
@@ -455,7 +503,7 @@ def find_offers(
     filters: Filters,
     now: datetime,
 ) -> list[Offer]:
-    """Alle passenden Angebote im Umkreis, sortiert nach Preis und Entfernung."""
+    """Alle passenden Angebote im Umkreis, nach Preis (oder Ladekosten) und Entfernung."""
     local = now.astimezone(LOCAL_TZ)
     offers: list[Offer] = []
     for station in stations:
@@ -467,7 +515,7 @@ def find_offers(
             continue
         if offer is not None:
             offers.append(offer)
-    offers.sort(key=lambda o: (round(o.price.kwh, 4), o.distance_km))
+    offers.sort(key=lambda o: (round(o.rank, 4), o.distance_km))
     return offers
 
 
@@ -613,7 +661,7 @@ def cheapest_ahead(
                 offer = _price_at(station, lat, lon, filters, when)
             except (KeyError, TypeError, ValueError):
                 continue
-            if offer is not None and (best is None or offer.price.kwh < best.price.kwh - 1e-9):
+            if offer is not None and (best is None or offer.rank < best.rank - 1e-9):
                 best, start = offer, when
     if best is None:
         return None
