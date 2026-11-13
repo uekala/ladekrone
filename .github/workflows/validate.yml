@@ -24,11 +24,17 @@ jobs:
 
   tests:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # 3.13 prüft gegen ein älteres Home Assistant (letzte Testversion für 3.13),
+        # 3.14 gegen das aktuelle.
+        python-version: ["3.13", "3.14"]
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
         with:
-          python-version: "3.13"
+          python-version: ${{ matrix.python-version }}
       - run: pip install -r requirements_test.txt ruff
       - run: ruff check . && ruff format --check .
       - run: pytest -q
