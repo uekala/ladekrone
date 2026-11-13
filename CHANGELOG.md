@@ -4,6 +4,7 @@
 
 - **Echte Ladekosten.** Neue Option „Typische Ladung“ (kWh): Die Rangfolge richtet sich dann nach dem, was diese Ladung kostet – Energie, Startgebühr und Zeitgebühr – statt nur nach dem kWh-Preis. Die Angebote tragen dazu `total_cost` und `effective_price`. Die Ladedauer für die Zeitgebühr wird aus der Leistung des Ladepunkts geschätzt.
 - **Binärsensor „Jetzt günstig“.** Mit der neuen Option „Preisgrenze“ ist er an, solange der günstigste Preis höchstens so hoch ist. Ohne Preisgrenze ist er an, solange es in den nächsten 24 Stunden nicht günstiger wird.
+- **Preisverlauf.** Der Datensammler merkt sich ab jetzt, wann sich der reguläre Preis einer Station ändert. Karte und Sensor zeigen die letzte Änderung („Seit 03.11. um 5 ct teurer“, Attribute `previous_price` und `price_since`). Der Verlauf beginnt mit dieser Version; frühere Änderungen sind nicht bekannt.
 - **Karte.** Zeigt die Kosten der typischen Ladung, wenn die Option gesetzt ist. Zwei neue Optionen im Editor: „Kompakt“ (nur Preis, Station und Route) und „Höchstens so viele weitere Stationen“.
 - **Zwei Blueprints.** „Preisalarm“ benachrichtigt, sobald der Preis unter deine Grenze fällt. „Akku niedrig“ schickt die günstigste Station, wenn der Akku des Autos unter deine Grenze fällt. Beide stehen im README zum Importieren.
 

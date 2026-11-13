@@ -51,6 +51,8 @@ const TEXT = {
     oldShort: (d) => `Preis vom ${d}`,
     tesla: "Supercharger-Preise laut AFIR, in der Tesla-App kann der Preis abweichen.",
     supercharger: (city) => `Supercharger ${city}`.trim(),
+    up: (d, c, p) => `Seit ${d} um ${c} ct teurer (vorher ${p} €)`,
+    down: (d, c, p) => `Seit ${d} um ${c} ct günstiger (vorher ${p} €)`,
     total: (kwh, cost) => `${kwh} kWh kosten hier etwa ${cost} €`,
     totalShort: (kwh, cost) => `${kwh} kWh ≈ ${cost} €`,
     editor: { entity: "Günstigster Preis (Ladekrone-Sensor)", title: "Überschrift", show_list: "Weitere Stationen zeigen", max_stations: "Höchstens so viele weitere Stationen", compact: "Kompakt (nur Preis, Station und Route)" },
@@ -87,6 +89,8 @@ const TEXT = {
     oldShort: (d) => `Price from ${d}`,
     tesla: "Supercharger prices as reported under AFIR; the Tesla app may show a different price.",
     supercharger: (city) => `Supercharger ${city}`.trim(),
+    up: (d, c, p) => `Up ${c} ct since ${d} (was ${p} €)`,
+    down: (d, c, p) => `Down ${c} ct since ${d} (was ${p} €)`,
     total: (kwh, cost) => `${kwh} kWh cost about ${cost} € here`,
     totalShort: (kwh, cost) => `${kwh} kWh ≈ ${cost} €`,
     editor: { entity: "Cheapest price (Ladekrone sensor)", title: "Title", show_list: "Show more stations", max_stations: "Show at most this many more stations", compact: "Compact (price, station and route only)" },
@@ -161,6 +165,7 @@ summary::-webkit-details-marker{display:none}
 .change{grid-column:1 / -1;font-size:.9rem;color:var(--later-ink)}
 .change.old{color:var(--ink);font-weight:700}
 .change.total{color:var(--ink)}
+.trend{margin:-.2rem 0 .6rem;color:var(--ink);font-size:.9rem;line-height:1.4}
 .total{margin:-.2rem 0 .5rem;color:var(--ink);font-size:1rem;font-weight:700}
 .winner.compact .actions{margin-top:.6rem}
 .foot[hidden]{display:none}
@@ -316,6 +321,15 @@ class LadekroneCard extends HTMLElement {
     return Number.isNaN(when.getTime()) ? "" : f.date(when);
   }
 
+  _trend(offer, f, t) {
+    if (offer.previous_price == null || !offer.price_since) return null;
+    const when = new Date(`${offer.price_since}T12:00:00Z`);
+    const diff = Math.round((Number(offer.price) - Number(offer.previous_price)) * 100);
+    if (Number.isNaN(when.getTime()) || !diff) return null;
+    const text = (diff > 0 ? t.up : t.down)(f.date(when), f.whole(Math.abs(diff)), f.euro(offer.previous_price));
+    return { text, up: diff > 0 };
+  }
+
   _total(offer, f, t, short = false) {
     if (offer.total_cost == null || !offer.charge_kwh) return "";
     return (short ? t.totalShort : t.total)(f.whole(offer.charge_kwh), f.euro(offer.total_cost));
@@ -366,6 +380,7 @@ class LadekroneCard extends HTMLElement {
       const until = this._until(best, f, t);
       const old = this._old(best, f);
       const total = this._total(best, f, t);
+      const trend = this._trend(best, f, t);
       const compact = !!this._config.compact;
       body = `<article class="winner${compact ? " compact" : ""}">
         <p class="label">${esc(t.best)}</p>
@@ -373,6 +388,7 @@ class LadekroneCard extends HTMLElement {
         ${total ? `<p class="total">${esc(total)}</p>` : ""}
         ${compact ? "" : `<p class="price-note">${esc(this._note(best, t))}</p>`}
         ${old ? `<p class="price-old">${esc(t.old(old))}</p>` : ""}
+        ${trend ? `<p class="trend ${trend.up ? "up" : "down"}">${trend.up ? "▲" : "▼"} ${esc(trend.text)}</p>` : ""}
         <p class="who">${esc(this._name(best, t))}</p>
         <p class="addr">${esc((isTesla(best) ? [street] : [street, city]).filter(Boolean).join(", "))}</p>
         <ul class="facts">${this._facts(best, f, t).slice(0, compact ? 2 : undefined).map((x) => `<li>${esc(x)}</li>`).join("")}</ul>

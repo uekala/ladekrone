@@ -305,3 +305,28 @@ def test_small_charge_makes_session_fee_weigh_more() -> None:
     big = find_offers(COST_STATIONS, *HOME, 5, Filters(charge_kwh=80), _local(12))
     # bei 80 kWh lohnt sich der niedrige kWh-Preis trotz Startgebühr
     assert big[0].station_id == "start"
+
+
+def test_last_change_from_history() -> None:
+    station = _plain_station("hist", 0.001, 150, [{"t": "kwh", "v": 0.59}])
+    station["h"] = [["2026-10-01", 0.54], ["2026-10-20", 0.59]]
+    offer = find_offers([station], *HOME, 5, Filters(), _local(12))[0]
+    assert (offer.previous_price, offer.price_since) == (0.54, "2026-10-20")
+    data = offer.as_dict()
+    assert data["previous_price"] == 0.54
+    assert data["price_since"] == "2026-10-20"
+
+
+def test_history_is_ignored_when_another_price_applies() -> None:
+    night = {"in": [{"t": [["23:00", "07:00"]]}]}
+    station = _plain_station(
+        "night", 0.001, 150, [{"t": "kwh", "v": 0.59}, {"t": "kwh", "v": 0.39, "w": night}]
+    )
+    station["h"] = [["2026-10-01", 0.54], ["2026-10-20", 0.59]]
+    offer = find_offers([station], *HOME, 5, Filters(), _local(2))[0]
+    assert offer.price.kwh == 0.39
+    assert offer.previous_price is None
+    assert "previous_price" not in offer.as_dict()
+    # kaputter Verlauf stört nicht
+    station["h"] = [["x"], "y"]
+    assert find_offers([station], *HOME, 5, Filters(), _local(12))[0].previous_price is None

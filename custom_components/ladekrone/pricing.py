@@ -89,6 +89,9 @@ class Offer:
     next_price: float | None = None
     charge_kwh: float = 0
     total_cost: float | None = None
+    # Letzte Preisänderung laut Verlauf des Datensammlers
+    previous_price: float | None = None
+    price_since: str | None = None
 
     @property
     def rank(self) -> float:
@@ -117,6 +120,9 @@ class Offer:
             data["charge_kwh"] = self.charge_kwh
             data["total_cost"] = round(self.total_cost, 2)
             data["effective_price"] = round(self.total_cost / self.charge_kwh, 3)
+        if self.previous_price is not None:
+            data["previous_price"] = round(self.previous_price, 2)
+            data["price_since"] = self.price_since
         data["tariff"] = self.price.tariff
         if self.price.tariff_name:
             data["tariff_name"] = self.price.tariff_name
@@ -329,6 +335,24 @@ def charge_cost(price: Price, kwh: float, power_kw: float | None) -> float:
     return total
 
 
+def last_change(station: dict, price: Price) -> tuple[float | None, str | None]:
+    """Vorheriger Preis und Datum der Änderung, wenn der Verlauf zum Preis passt.
+
+    Der Verlauf (``h``) hält den regulären Ad-hoc-Preis fest. Gilt gerade ein
+    anderer Preis (Nachttarif, Vertragstarif), sagt er über diesen nichts aus.
+    """
+    history = station.get("h")
+    if price.tariff != "adHoc" or not isinstance(history, list) or len(history) < 2:
+        return None, None
+    try:
+        (_, before), (since, current) = history[-2], history[-1]
+        if abs(float(current) - price.kwh) > 1e-9 or float(before) == float(current):
+            return None, None
+        return float(before), str(since)
+    except (TypeError, ValueError):
+        return None, None
+
+
 def _rank(price: Price, group: dict, filters: Filters) -> float:
     if filters.charge_kwh > 0:
         return charge_cost(price, filters.charge_kwh, group.get("kw"))
@@ -478,6 +502,7 @@ def best_offer(
     if best is None:
         return None
     price, group, value = best
+    previous, since = last_change(station, price)
     return Offer(
         station_id=station["id"],
         operator=station.get("o") or station.get("b"),
@@ -492,6 +517,8 @@ def best_offer(
         points=group.get("n", 0),
         charge_kwh=filters.charge_kwh,
         total_cost=value if filters.charge_kwh > 0 else None,
+        previous_price=previous,
+        price_since=since,
     )
 
 
