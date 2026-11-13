@@ -7,6 +7,7 @@
 - **Preisverlauf.** Der Datensammler merkt sich ab jetzt, wann sich der reguläre Preis einer Station ändert. Karte und Sensor zeigen die letzte Änderung („Seit 03.11. um 5 ct teurer“, Attribute `previous_price` und `price_since`). Der Verlauf beginnt mit dieser Version; frühere Änderungen sind nicht bekannt.
 - **Karte.** Zeigt die Kosten der typischen Ladung, wenn die Option gesetzt ist. Zwei neue Optionen im Editor: „Kompakt“ (nur Preis, Station und Route) und „Höchstens so viele weitere Stationen“.
 - **Zwei Blueprints.** „Preisalarm“ benachrichtigt, sobald der Preis unter deine Grenze fällt. „Akku niedrig“ schickt die günstigste Station, wenn der Akku des Autos unter deine Grenze fällt. Beide stehen im README zum Importieren.
+- **Web-App.** Rangfolge nach den Kosten einer Ladung (20 bis 80 kWh), letzte Preisänderung je Station, Orte merken, Suche als Link teilen. Bei Vertrags- und Abotarifen zeigt sie den Abstand zum Ad-hoc-Preis und mit deiner Grundgebühr, ab wie vielen kWh im Monat sich der Tarif lohnt.
 
 ## 0.8.0
 

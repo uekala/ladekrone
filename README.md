@@ -29,6 +29,10 @@ Seit der EU-Verordnung AFIR müssen alle Ladenetze Standorte, Leistung und Ad-ho
 - Günstigster Preis im Umkreis, darunter alle weiteren Stationen mit Preis
 - **Später günstiger**: der günstigste Preis der nächsten 24 Stunden mit Zeitfenster
 - Filter nach Leistung, Umkreis, Ladenetz und Stecker
+- **Kosten einer Ladung**: Rangfolge nach dem, was 20, 40, 60 oder 80 kWh kosten, mit Start- und Zeitgebühr
+- **Preisverlauf**: zeigt, seit wann ein Preis gilt und was er vorher war
+- **Lohnt sich das Abo?**: Bei Vertrags- und Abotarifen der Vergleich mit dem Ad-hoc-Preis; mit deiner Grundgebühr die kWh im Monat, ab denen es sich lohnt
+- Orte merken und eine Suche als Link teilen
 - Route mit einem Tipp in Apple Karten oder Google Maps
 - Keine Konten, keine Cookies, kein Tracking; der Standort bleibt auf dem Gerät
 
@@ -67,6 +71,8 @@ Deine Position verlässt Home Assistant nicht – abgerufen werden nur ganze Kac
 | Stromart | Alle, AC oder DC |
 | Stecker | Alle, CCS, Typ 2 oder CHAdeMO |
 | Preis | Ad-hoc, oder Vertrag bzw. Abo, wenn der Betreiber diesen Tarif in der Mobilithek veröffentlicht. Sonst gilt der Ad-hoc-Preis und ist als solcher gekennzeichnet |
+| Typische Ladung | Optional, in kWh. Dann richtet sich die Rangfolge nach den Kosten dieser Ladung: Energie, Startgebühr und Zeitgebühr. Die Ladedauer für die Zeitgebühr wird aus der Leistung des Ladepunkts geschätzt; lädt dein Auto langsamer, wird es teurer. Leer = Rangfolge nach kWh-Preis |
+| Preisgrenze für „Jetzt günstig“ | Optional, in €/kWh, für den Binärsensor „Jetzt günstig“ |
 | Nur diese Ladenetze | Optional, kommagetrennt, z. B. `Tesla` oder `EnBW, Ionity` |
 | Ladenetze aus Entität | Optional: Liest weitere Ladenetze aus dem Attribut `operators` einer Entität (Liste aus Namen oder aus Einträgen mit `name`), z. B. `sensor.ladecockpit_multipass` aus [Ladecockpit](https://github.com/uekala/ladecockpit) mit den Ladenetzen, an denen Tesla MultiPass schon funktioniert hat. Die Liste wächst mit, es zählen alle Stationen dieser Netze. Solange kein Ladenetz bekannt ist, wird nichts vorgeschlagen |
 | Mittelpunkt folgt | Optional: `device_tracker`, `person` oder `zone`. Die Suche wandert mit; ohne aktuelle Position gilt das Suchgebiet oben |
@@ -82,6 +88,20 @@ Alles lässt sich später über **Konfigurieren** ändern.
 | Durchschnittspreis | Mittlerer aktueller Ad-hoc-Preis aller passenden Stationen mit Preis im Umkreis. Attribute: `stations`, `min_price`, `max_price` |
 | Ladestationen im Umkreis | Passende Stationen. Attribute: `with_price` (davon mit Preis), `networks` (Ladenetze aus der Entität, falls eingestellt), `center_source` (`fixed` oder die Entität, der die Suche folgt), `center_latitude`, `center_longitude` |
 | Datenstand | Zeitpunkt der letzten Datenaufbereitung (Diagnose) |
+| Jetzt günstig (Binärsensor) | Mit Preisgrenze: an, solange der günstigste Preis höchstens so hoch ist. Ohne Preisgrenze: an, solange es in den nächsten 24 Stunden nicht günstiger wird. Attribute: `mode`, `price_limit`, `price`, `operator`, `address`, `distance_km`, `latitude`, `longitude` |
+
+Mit „Typische Ladung“ tragen die Angebote zusätzlich `charge_kwh`, `total_cost` (Kosten der Ladung) und `effective_price` (Kosten je kWh); `ranked_by` nennt dann `total_cost`. Hat sich der reguläre Preis einer Station geändert, stehen `previous_price` und `price_since` (Datum der Änderung) dabei. Der Verlauf beginnt mit Version 0.9.
+
+## Blueprints
+
+Zwei fertige Automationen zum Importieren (Einstellungen → Automationen & Szenen → Blueprints → Blueprint importieren):
+
+| Blueprint | Was er tut | Adresse zum Importieren |
+|-----------|------------|-------------------------|
+| Preisalarm | Benachrichtigt, sobald der günstigste Preis unter deine Grenze fällt, auf Wunsch nicht nachts | `https://github.com/uekala/ladekrone/blob/main/blueprints/automation/ladekrone/preisalarm.yaml` |
+| Akku niedrig | Schickt die günstigste Station, wenn der Akku des Autos unter deine Grenze fällt. Am besten mit einem Suchgebiet, das dem Auto folgt | `https://github.com/uekala/ladekrone/blob/main/blueprints/automation/ladekrone/akku_niedrig.yaml` |
+
+Als Benachrichtigung ist eine Meldung in Home Assistant voreingestellt. Für das Handy die Aktion durch `notify.mobile_app_…` ersetzen; `title`, `message` und `route_url` stehen als Variablen bereit.
 
 ## Dashboard-Karte
 
@@ -176,7 +196,7 @@ Die Entitäts-IDs hängen vom gewählten Namen ab.
 - Jeder Datenlauf meldet, wie viele Quellen geladen wurden („19 von 21 Quellen geladen“). Quellen ohne Abo, dynamische Feeds ohne Abo und dynamische Feeds, die Status, aber keine Preise liefern, erscheinen als Warnung im Log, als Hinweis in der Zusammenfassung des Workflows und unter `summary` in der Diagnose.
 - In Home Assistant zeigt **Einstellungen → Geräte & Dienste → Ladekrone → Diagnose herunterladen** denselben Quellenbericht, dazu Alter der Daten, letzten Abruf mit Fehlertext und geladene Kacheln – ohne den Standort.
 
-## Grenzen (Version 0.5)
+## Grenzen
 
 - Die Daten werden alle 6 Stunden aufbereitet; GitHub startet geplante Läufe allerdings oft deutlich später. Dynamische Preise kommen deshalb mit einigen Stunden Verzug an.
 - Nicht alle Ladenetze melden schon an die Mobilithek, und nicht jede gemeldete Säule hat einen Preis. Qwello meldet derzeit weder statisch noch dynamisch Preise.
