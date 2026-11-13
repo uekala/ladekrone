@@ -1,0 +1,73 @@
+blueprint:
+  name: "Ladekrone: Akku niedrig – günstigste Station"
+  description: >-
+    Fällt der Akku des Autos unter deine Grenze, bekommst du die günstigste
+    Ladestation im Suchgebiet aufs Handy. Am besten mit einem Suchgebiet, dessen
+    Mittelpunkt dem Auto folgt.
+  domain: automation
+  source_url: https://github.com/uekala/ladekrone/blob/main/blueprints/automation/ladekrone/akku_niedrig.yaml
+  input:
+    battery_sensor:
+      name: Akkustand des Autos
+      selector:
+        entity:
+          filter:
+            - domain: sensor
+              device_class: battery
+    battery_limit:
+      name: Akkugrenze
+      default: 20
+      selector:
+        number:
+          min: 5
+          max: 80
+          step: 1
+          unit_of_measurement: "%"
+    price_sensor:
+      name: Günstigster Preis
+      description: Der Sensor „Günstigster Preis“ eines Ladekrone-Suchgebiets.
+      selector:
+        entity:
+          filter:
+            - integration: ladekrone
+              domain: sensor
+    notify_actions:
+      name: Benachrichtigung
+      description: >-
+        Was passieren soll. Zur Verfügung stehen die Variablen `title`, `message`
+        und `route_url`.
+      default:
+        - action: persistent_notification.create
+          data:
+            title: "{{ title }}"
+            message: "{{ message }}"
+      selector:
+        action: {}
+
+mode: single
+max_exceeded: silent
+
+triggers:
+  - trigger: numeric_state
+    entity_id: !input battery_sensor
+    below: !input battery_limit
+
+conditions:
+  - condition: template
+    value_template: "{{ states(sensor) not in ['unknown', 'unavailable'] }}"
+
+variables:
+  sensor: !input price_sensor
+  battery: !input battery_sensor
+  price: "{{ states(sensor) | float(0) }}"
+  operator: "{{ state_attr(sensor, 'operator') or 'Ladestation' }}"
+  address: "{{ state_attr(sensor, 'address') or '' }}"
+  distance: "{{ state_attr(sensor, 'distance_km') }}"
+  route_url: >-
+    https://www.google.com/maps/dir/?api=1&destination={{ state_attr(sensor, 'latitude') }},{{ state_attr(sensor, 'longitude') }}
+  title: "Akku bei {{ states(battery) | float(0) | round(0) | int }} % – günstig laden"
+  message: >-
+    {{ '%.2f' | format(price) | replace('.', ',') }} €/kWh bei {{ operator }}{% if address %}, {{ address }}{% endif %}{% if distance is not none %} ({{ distance | string | replace('.', ',') }} km){% endif %}
+
+actions:
+  - sequence: !input notify_actions

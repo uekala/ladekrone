@@ -1,0 +1,77 @@
+blueprint:
+  name: "Ladekrone: Preisalarm"
+  description: >-
+    Schickt eine Benachrichtigung, sobald der günstigste Ladepreis im Suchgebiet
+    unter deine Grenze fällt. Tippen auf die Nachricht öffnet die Route zur Station.
+  domain: automation
+  source_url: https://github.com/uekala/ladekrone/blob/main/blueprints/automation/ladekrone/preisalarm.yaml
+  input:
+    price_sensor:
+      name: Günstigster Preis
+      description: Der Sensor „Günstigster Preis“ eines Ladekrone-Suchgebiets.
+      selector:
+        entity:
+          filter:
+            - integration: ladekrone
+              domain: sensor
+    limit:
+      name: Preisgrenze
+      description: Benachrichtigen, sobald der Preis darunter fällt.
+      default: 0.45
+      selector:
+        number:
+          min: 0
+          max: 2
+          step: 0.01
+          unit_of_measurement: "€/kWh"
+          mode: box
+    notify_actions:
+      name: Benachrichtigung
+      description: >-
+        Was passieren soll. Zur Verfügung stehen die Variablen `title`, `message`
+        und `route_url`.
+      default:
+        - action: persistent_notification.create
+          data:
+            title: "{{ title }}"
+            message: "{{ message }}"
+      selector:
+        action: {}
+    quiet_hours:
+      name: Nicht zwischen 22 und 7 Uhr
+      default: true
+      selector:
+        boolean: {}
+
+mode: single
+max_exceeded: silent
+
+triggers:
+  - trigger: numeric_state
+    entity_id: !input price_sensor
+    below: !input limit
+
+conditions:
+  - condition: or
+    conditions:
+      - condition: template
+        value_template: "{{ not quiet }}"
+      - condition: time
+        after: "07:00:00"
+        before: "22:00:00"
+
+variables:
+  sensor: !input price_sensor
+  quiet: !input quiet_hours
+  price: "{{ states(sensor) | float(0) }}"
+  operator: "{{ state_attr(sensor, 'operator') or 'Ladestation' }}"
+  address: "{{ state_attr(sensor, 'address') or '' }}"
+  distance: "{{ state_attr(sensor, 'distance_km') }}"
+  route_url: >-
+    https://www.google.com/maps/dir/?api=1&destination={{ state_attr(sensor, 'latitude') }},{{ state_attr(sensor, 'longitude') }}
+  title: "Laden für {{ '%.2f' | format(price) | replace('.', ',') }} €/kWh"
+  message: >-
+    {{ operator }}{% if address %}, {{ address }}{% endif %}{% if distance is not none %} ({{ distance | string | replace('.', ',') }} km){% endif %}
+
+actions:
+  - sequence: !input notify_actions
