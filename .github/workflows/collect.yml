@@ -73,6 +73,7 @@ jobs:
           --sources sources.json
           --out ../public
           --cache ../.cache/mobilithek
+          --history-url https://uekala.github.io/ladekrone/v1/history.json
           --cert "$RUNNER_TEMP/cert/client.crt"
           --key "$RUNNER_TEMP/cert/client.key"
 

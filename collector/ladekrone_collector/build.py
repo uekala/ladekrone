@@ -23,6 +23,8 @@ from .datex import (
     rate_ids,
     uses_special_days,
 )
+from .history import load_state, save_state
+from .history import update as update_history
 from .mobilithek import FetchError, build_ssl_context, fetch_subscription
 from .operators import build_operator_names, resolve_operator_ids
 from .places import build_places
@@ -381,6 +383,15 @@ def run(args: argparse.Namespace) -> int:
     operator_ids = resolve_operator_ids(all_records, build_operator_names(all_records))
     stations, stats = merge_sources(parsed)
     generated = args.generated or datetime.now(UTC).replace(microsecond=0).isoformat()
+    history_file = getattr(args, "history", None)
+    history_path = Path(history_file) if history_file else Path(args.cache) / "history.json"
+    history = load_state(history_path, getattr(args, "history_url", None))
+    changed = update_history(history, stations, datetime.fromisoformat(generated).date())
+    _LOGGER.info(
+        "Preisverlauf: %d Stationen beobachtet, %d mit Preisänderung",
+        len(history["stations"]),
+        changed,
+    )
     meta = write_output(
         Path(args.out),
         stations,
@@ -390,6 +401,8 @@ def run(args: argparse.Namespace) -> int:
         diagnostics,
         {"summary": summary, "operator_ids": operator_ids},
     )
+    # Im Cache für den nächsten Lauf, veröffentlicht als Rückfall bei leerem Cache.
+    save_state(history, history_path, Path(args.out) / f"v{FORMAT_VERSION}" / "history.json")
     skipped = (
         len(summary["sources_without_subscription"])
         + len(summary["sources_without_certificate"])
@@ -431,6 +444,10 @@ def main(argv: list[str] | None = None) -> int:
         "--input", action="append", help="Lokale Datei statt Abruf: quelle=pfad (mehrfach)"
     )
     parser.add_argument("--generated", help="Zeitstempel überschreiben (Tests)")
+    parser.add_argument("--history", help="Datei für den Preisverlauf (Standard: im Cache)")
+    parser.add_argument(
+        "--history-url", help="Veröffentlichter Preisverlauf als Rückfall bei leerem Cache"
+    )
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
     return run(args)
