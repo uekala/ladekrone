@@ -129,7 +129,8 @@ p{margin:0}
 .stand{color:var(--muted);font-size:.85rem;text-align:right}
 .winner{background:var(--wash);border-radius:1.5rem;padding:1.15rem 1.2rem 1.1rem}
 .label{display:flex;align-items:center;gap:.4rem;color:var(--muted);font-weight:700}
-.price{display:flex;align-items:baseline;gap:.45rem;margin:.05rem 0 .25rem;flex-wrap:wrap}\n.price-note{margin:0 0 .65rem;color:var(--muted);font-size:.9rem;line-height:1.4}
+.price{display:flex;align-items:baseline;gap:.45rem;margin:.05rem 0 .25rem;flex-wrap:wrap}
+.price-note{margin:0 0 .65rem;color:var(--muted);font-size:.9rem;line-height:1.4}
 .price-old{margin:-.4rem 0 .65rem;color:var(--ink);font-size:.9rem;line-height:1.4;font-weight:700}
 .num{font:780 clamp(3rem,17cqi,5rem)/.95 "Ladekrone Bricolage",sans-serif;letter-spacing:-.045em;
   font-variant-numeric:tabular-nums;font-variation-settings:"wdth" 88}
