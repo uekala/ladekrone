@@ -106,6 +106,8 @@ entity: sensor.ladekrone_gunstigster_preis
 | `entity` | Sensor „Günstigster Preis“ eines Suchgebiets (Pflicht). „Später günstiger“, Datenstand und Anzahl der Stationen holt die Karte vom selben Suchgebiet. |
 | `title` | Überschrift, Standard ist der Name des Suchgebiets |
 | `show_list` | Weitere Stationen zeigen, Standard `true` |
+| `max_stations` | Höchstens so viele weitere Stationen (1 bis 4), Standard alle |
+| `compact` | Kompakte Karte: nur Preis, Station und Route, Standard `false` |
 
 Nach einem Update von Ladekrone die Seite einmal neu laden, damit der Browser die neue Karte nimmt.
 

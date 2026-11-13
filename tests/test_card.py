@@ -29,6 +29,9 @@ def test_card_files_are_shipped() -> None:
     # die HA beim Start ersetzt.
     assert "whenDefined(host.localName)" in script
     assert "fonts/bricolage.woff2" in script
+    # Optionen des visuellen Editors
+    for option in ("show_list", "max_stations", "compact"):
+        assert f'name: "{option}"' in script
 
 
 async def test_card_registered_with_version(hass: HomeAssistant) -> None:

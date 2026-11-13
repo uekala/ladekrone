@@ -51,7 +51,9 @@ const TEXT = {
     oldShort: (d) => `Preis vom ${d}`,
     tesla: "Supercharger-Preise laut AFIR, in der Tesla-App kann der Preis abweichen.",
     supercharger: (city) => `Supercharger ${city}`.trim(),
-    editor: { entity: "Günstigster Preis (Ladekrone-Sensor)", title: "Überschrift", show_list: "Weitere Stationen zeigen" },
+    total: (kwh, cost) => `${kwh} kWh kosten hier etwa ${cost} €`,
+    totalShort: (kwh, cost) => `${kwh} kWh ≈ ${cost} €`,
+    editor: { entity: "Günstigster Preis (Ladekrone-Sensor)", title: "Überschrift", show_list: "Weitere Stationen zeigen", max_stations: "Höchstens so viele weitere Stationen", compact: "Kompakt (nur Preis, Station und Route)" },
   },
   en: {
     best: "Cheapest right now",
@@ -85,7 +87,9 @@ const TEXT = {
     oldShort: (d) => `Price from ${d}`,
     tesla: "Supercharger prices as reported under AFIR; the Tesla app may show a different price.",
     supercharger: (city) => `Supercharger ${city}`.trim(),
-    editor: { entity: "Cheapest price (Ladekrone sensor)", title: "Title", show_list: "Show more stations" },
+    total: (kwh, cost) => `${kwh} kWh cost about ${cost} € here`,
+    totalShort: (kwh, cost) => `${kwh} kWh ≈ ${cost} €`,
+    editor: { entity: "Cheapest price (Ladekrone sensor)", title: "Title", show_list: "Show more stations", max_stations: "Show at most this many more stations", compact: "Compact (price, station and route only)" },
   },
 };
 
@@ -156,6 +160,10 @@ summary::-webkit-details-marker{display:none}
 .p small{display:block;font:400 .8rem/1.3 "Ladekrone Atkinson",sans-serif;color:var(--muted);letter-spacing:0}
 .change{grid-column:1 / -1;font-size:.9rem;color:var(--later-ink)}
 .change.old{color:var(--ink);font-weight:700}
+.change.total{color:var(--ink)}
+.total{margin:-.2rem 0 .5rem;color:var(--ink);font-size:1rem;font-weight:700}
+.winner.compact .actions{margin-top:.6rem}
+.foot[hidden]{display:none}
 details[open]>summary{padding-bottom:.35rem}
 .detail{padding:0 .15rem .9rem;color:var(--muted);font-size:.94rem}
 .detail p{margin:.15rem 0}
@@ -187,6 +195,8 @@ class LadekroneCard extends HTMLElement {
         { name: "entity", required: true, selector: { entity: { filter: { integration: "ladekrone", domain: "sensor" } } } },
         { name: "title", selector: { text: {} } },
         { name: "show_list", selector: { boolean: {} } },
+        { name: "max_stations", selector: { number: { min: 1, max: 4, step: 1, mode: "box" } } },
+        { name: "compact", selector: { boolean: {} } },
       ],
       computeLabel: (schema, data, hass) => LadekroneCard.text(hass).editor[schema.name],
     };
@@ -217,7 +227,7 @@ class LadekroneCard extends HTMLElement {
   }
 
   getCardSize() {
-    return 7;
+    return this._config?.compact ? 4 : 7;
   }
 
   getGridOptions() {
@@ -306,6 +316,11 @@ class LadekroneCard extends HTMLElement {
     return Number.isNaN(when.getTime()) ? "" : f.date(when);
   }
 
+  _total(offer, f, t, short = false) {
+    if (offer.total_cost == null || !offer.charge_kwh) return "";
+    return (short ? t.totalShort : t.total)(f.whole(offer.charge_kwh), f.euro(offer.total_cost));
+  }
+
   _route(offer) {
     const apple = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
     return apple
@@ -350,19 +365,22 @@ class LadekroneCard extends HTMLElement {
       const fees = this._fees(best, f, t);
       const until = this._until(best, f, t);
       const old = this._old(best, f);
-      body = `<article class="winner">
+      const total = this._total(best, f, t);
+      const compact = !!this._config.compact;
+      body = `<article class="winner${compact ? " compact" : ""}">
         <p class="label">${esc(t.best)}</p>
         <p class="price"><span class="num">${f.euro(best.price)}</span><span class="unit">€/kWh</span></p>
-        <p class="price-note">${esc(this._note(best, t))}</p>
+        ${total ? `<p class="total">${esc(total)}</p>` : ""}
+        ${compact ? "" : `<p class="price-note">${esc(this._note(best, t))}</p>`}
         ${old ? `<p class="price-old">${esc(t.old(old))}</p>` : ""}
         <p class="who">${esc(this._name(best, t))}</p>
         <p class="addr">${esc((isTesla(best) ? [street] : [street, city]).filter(Boolean).join(", "))}</p>
-        <ul class="facts">${this._facts(best, f, t).map((x) => `<li>${esc(x)}</li>`).join("")}</ul>
+        <ul class="facts">${this._facts(best, f, t).slice(0, compact ? 2 : undefined).map((x) => `<li>${esc(x)}</li>`).join("")}</ul>
         ${until ? `<p class="until">${esc(until)}</p>` : ""}
-        ${fees ? `<p class="fees">${esc(fees)}</p>` : ""}
+        ${fees && !compact ? `<p class="fees">${esc(fees)}</p>` : ""}
         <div class="actions">
           <a class="btn primary" href="${esc(this._route(best))}" target="_blank" rel="noopener">${esc(t.route)}</a>
-          <button class="btn ghost" type="button" data-more="${esc(main.entity_id)}">${esc(t.details)}</button>
+          ${compact ? "" : `<button class="btn ghost" type="button" data-more="${esc(main.entity_id)}">${esc(t.details)}</button>`}
         </div>
       </article>`;
 
@@ -375,7 +393,9 @@ class LadekroneCard extends HTMLElement {
         </aside>`;
       }
 
-      const rest = this._config.show_list ? offers.slice(1) : [];
+      const limit = Number(this._config.max_stations);
+      const rest = this._config.show_list && !compact
+        ? offers.slice(1, Number.isFinite(limit) && limit > 0 ? 1 + limit : undefined) : [];
       if (rest.length) {
         const rows = rest.map((o) => {
           const addr = splitAddress(o.address);
@@ -393,6 +413,7 @@ class LadekroneCard extends HTMLElement {
               ${rowUntil ? `<span class="change">${esc(rowUntil)}</span>` : ""}
               ${o.tariff && o.tariff !== "adHoc" ? `<span class="change">${esc(this._note(o, t))}</span>` : ""}
               ${rowOld ? `<span class="change old">${esc(t.oldShort(rowOld))}</span>` : ""}
+              ${this._total(o, f, t, true) ? `<span class="change total">${esc(this._total(o, f, t, true))}</span>` : ""}
             </summary>
             <div class="detail">
               <p>${esc([addr.street, addr.city].filter(Boolean).join(", "))}</p>
@@ -414,7 +435,7 @@ class LadekroneCard extends HTMLElement {
       <ha-card>
         <div class="bar"><span class="brand">${CROWN}${esc(title)}</span>${stand}</div>
         ${body}
-        <div class="foot">${summary}<p>${esc(has(main) ? this._note(main.attributes, t) : t.adhoc)}</p>${tesla ? `<p>${esc(t.tesla)}</p>` : ""}</div>
+        <div class="foot"${this._config.compact ? " hidden" : ""}>${summary}<p>${esc(has(main) ? this._note(main.attributes, t) : t.adhoc)}</p>${tesla ? `<p>${esc(t.tesla)}</p>` : ""}</div>
       </ha-card>`;
 
     this.shadowRoot.querySelectorAll("[data-more]").forEach((button) =>
