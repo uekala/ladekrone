@@ -65,6 +65,7 @@ def _cheapest_attrs(data: LadekroneData) -> dict[str, Any]:
     best = data.offers[0]
     attrs = _offer_dict(best)
     attrs.pop("price", None)
+    attrs["ranked_by"] = "total_cost" if best.total_cost is not None else "price"
     attrs["offers"] = [_offer_dict(offer) for offer in data.offers[:TOP_OFFERS]]
     return attrs
 

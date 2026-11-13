@@ -19,6 +19,8 @@ CONF_DATA_URL: Final = "data_url"
 CONF_LOCATION_ENTITY: Final = "location_entity"
 CONF_OPERATORS_ENTITY: Final = "operators_entity"
 CONF_TARIFF: Final = "tariff"
+CONF_CHARGE_KWH: Final = "charge_kwh"
+CONF_PRICE_LIMIT: Final = "price_limit"
 
 MIN_POWER_OPTIONS: Final = ["0", "22", "50", "150"]
 CURRENT_OPTIONS: Final = ["any", "ac", "dc"]

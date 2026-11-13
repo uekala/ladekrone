@@ -11,6 +11,8 @@
           "current_type": "Current type",
           "connector": "Connector",
           "tariff": "Price",
+          "charge_kwh": "Typical charge",
+          "price_limit": "Price limit for “Cheap now”",
           "operators": "Only these operators",
           "operators_entity": "Charging networks from entity",
           "location_entity": "Center follows"
@@ -18,6 +20,8 @@
         "data_description": {
           "location": "Set centre and radius (max. 50 km) on the map.",
           "tariff": "Ad hoc always applies. A contract or subscription price is used only where the operator publishes that tariff. Otherwise the price stays the ad-hoc price and is labelled as such.",
+          "charge_kwh": "Optional, in kWh. Stations are then ranked by what this charge costs: energy, session fee and time fee (charging time estimated from the charge point's power). Empty = ranked by price per kWh.",
+          "price_limit": "Optional, in €/kWh. The “Cheap now” binary sensor is on while the cheapest price is at or below this. Empty = on while it will not get cheaper within the next 24 hours.",
           "operators": "Optional, comma-separated, e.g. \"Tesla\" or \"EnBW, Ionity\". Empty = all.",
           "operators_entity": "Optional: Also reads the charging networks from the “operators” attribute of an entity, e.g. sensor.ladecockpit_multipass (networks where MultiPass has worked). The list then grows by itself. Only stations of these networks count.",
           "location_entity": "Optional: the search moves with this entity, e.g. your car (device_tracker) or a person. Without a current position the location above is used. The radius always comes from the search area."
@@ -39,6 +43,8 @@
           "current_type": "Current type",
           "connector": "Connector",
           "tariff": "Price",
+          "charge_kwh": "Typical charge",
+          "price_limit": "Price limit for “Cheap now”",
           "operators": "Only these operators",
           "operators_entity": "Charging networks from entity",
           "data_url": "Data source (URL)",
@@ -47,6 +53,8 @@
         "data_description": {
           "operators": "Optional, comma-separated. Empty = all.",
           "tariff": "Ad hoc always applies. A contract or subscription price is used only where the operator publishes that tariff.",
+          "charge_kwh": "Optional, in kWh. Stations are then ranked by what this charge costs: energy, session fee and time fee (charging time estimated from the charge point's power). Empty = ranked by price per kWh.",
+          "price_limit": "Optional, in €/kWh. The “Cheap now” binary sensor is on while the cheapest price is at or below this. Empty = on while it will not get cheaper within the next 24 hours.",
           "operators_entity": "Optional: Also reads the charging networks from the “operators” attribute of an entity, e.g. sensor.ladecockpit_multipass (networks where MultiPass has worked). The list then grows by itself. Only stations of these networks count.",
           "data_url": "Only change this if you run your own data source.",
           "location_entity": "Optional: the search moves with this entity, e.g. your car (device_tracker) or a person. Without a current position the location above is used. The radius always comes from the search area."
@@ -106,6 +114,11 @@
       },
       "data_updated": {
         "name": "Data timestamp"
+      }
+    },
+    "binary_sensor": {
+      "cheap_now": {
+        "name": "Cheap now"
       }
     }
   }

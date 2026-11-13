@@ -185,3 +185,40 @@ async def test_options_flow_sets_and_clears_operators_entity(hass: HomeAssistant
     assert result["type"] is FlowResultType.CREATE_ENTRY
     # Geleert heißt geleert, auch wenn die Einrichtung noch einen Wert hatte
     assert entry.options["operators_entity"] is None
+
+
+async def test_options_flow_sets_and_clears_charge_and_limit(hass: HomeAssistant) -> None:
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title="Ladekrone",
+        data={
+            "location": LOCATION,
+            "min_power": "0",
+            "current_type": "any",
+            "connector": "any",
+            "operators": "",
+            "charge_kwh": 30,
+        },
+    )
+    entry.add_to_hass(hass)
+    base = {
+        "location": LOCATION,
+        "min_power": "0",
+        "current_type": "any",
+        "connector": "any",
+        "tariff": "adhoc",
+    }
+    with patch("custom_components.ladekrone.async_setup_entry", return_value=True):
+        result = await hass.config_entries.options.async_init(entry.entry_id)
+        result = await hass.config_entries.options.async_configure(
+            result["flow_id"], {**base, "charge_kwh": 45, "price_limit": 0.42}
+        )
+        assert result["type"] is FlowResultType.CREATE_ENTRY
+        assert entry.options["charge_kwh"] == 45
+        assert entry.options["price_limit"] == 0.42
+
+        # Geleerte Felder dürfen nicht auf den Wert aus der Einrichtung zurückfallen
+        result = await hass.config_entries.options.async_init(entry.entry_id)
+        result = await hass.config_entries.options.async_configure(result["flow_id"], base)
+        assert entry.options["charge_kwh"] is None
+        assert entry.options["price_limit"] is None

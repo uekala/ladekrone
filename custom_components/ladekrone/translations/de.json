@@ -11,6 +11,8 @@
           "current_type": "Stromart",
           "connector": "Stecker",
           "tariff": "Preis",
+          "charge_kwh": "Typische Ladung",
+          "price_limit": "Preisgrenze für „Jetzt günstig“",
           "operators": "Nur diese Ladenetze",
           "operators_entity": "Ladenetze aus Entität",
           "location_entity": "Mittelpunkt folgt"
@@ -18,6 +20,8 @@
         "data_description": {
           "location": "Mittelpunkt und Radius (max. 50 km) auf der Karte festlegen.",
           "tariff": "Ad-hoc gilt immer. Vertrag oder Abo nur dort, wo der Betreiber diesen Tarif in der Mobilithek veröffentlicht. Sonst bleibt der Ad-hoc-Preis und ist als solcher gekennzeichnet.",
+          "charge_kwh": "Optional, in kWh. Dann zählt nicht der kWh-Preis allein, sondern was diese Ladung kostet: Energie, Startgebühr und Zeitgebühr (Ladedauer aus der Leistung des Ladepunkts geschätzt). Leer = Rangfolge nach kWh-Preis.",
+          "price_limit": "Optional, in €/kWh. Der Binärsensor „Jetzt günstig“ ist an, solange der günstigste Preis höchstens so hoch ist. Leer = an, solange es in den nächsten 24 Stunden nicht günstiger wird.",
           "operators": "Optional, kommagetrennt, z. B. „Tesla“ oder „EnBW, Ionity“. Leer = alle.",
           "operators_entity": "Optional: Liest die Ladenetze zusätzlich aus dem Attribut „operators“ einer Entität, z. B. sensor.ladecockpit_multipass (Ladenetze, an denen MultiPass schon funktioniert hat). Die Liste wächst dann von selbst mit. Dann zählen nur Stationen dieser Ladenetze.",
           "location_entity": "Optional: Die Suche wandert mit dieser Entität mit, z. B. mit dem Auto (device_tracker) oder einer Person. Ohne aktuelle Position gilt der Ort oben. Der Radius kommt immer vom Suchgebiet."
@@ -39,6 +43,8 @@
           "current_type": "Stromart",
           "connector": "Stecker",
           "tariff": "Preis",
+          "charge_kwh": "Typische Ladung",
+          "price_limit": "Preisgrenze für „Jetzt günstig“",
           "operators": "Nur diese Ladenetze",
           "operators_entity": "Ladenetze aus Entität",
           "data_url": "Datenquelle (URL)",
@@ -47,6 +53,8 @@
         "data_description": {
           "operators": "Optional, kommagetrennt. Leer = alle.",
           "tariff": "Ad-hoc gilt immer. Vertrag oder Abo nur dort, wo der Betreiber diesen Tarif veröffentlicht. Sonst bleibt der Ad-hoc-Preis.",
+          "charge_kwh": "Optional, in kWh. Dann zählt nicht der kWh-Preis allein, sondern was diese Ladung kostet: Energie, Startgebühr und Zeitgebühr (Ladedauer aus der Leistung des Ladepunkts geschätzt). Leer = Rangfolge nach kWh-Preis.",
+          "price_limit": "Optional, in €/kWh. Der Binärsensor „Jetzt günstig“ ist an, solange der günstigste Preis höchstens so hoch ist. Leer = an, solange es in den nächsten 24 Stunden nicht günstiger wird.",
           "operators_entity": "Optional: Liest die Ladenetze zusätzlich aus dem Attribut „operators“ einer Entität, z. B. sensor.ladecockpit_multipass (Ladenetze, an denen MultiPass schon funktioniert hat). Die Liste wächst dann von selbst mit. Dann zählen nur Stationen dieser Ladenetze.",
           "data_url": "Nur ändern, wenn du eine eigene Datenquelle betreibst.",
           "location_entity": "Optional: Die Suche wandert mit dieser Entität mit, z. B. mit dem Auto (device_tracker) oder einer Person. Ohne aktuelle Position gilt der Ort oben. Der Radius kommt immer vom Suchgebiet."
@@ -106,6 +114,11 @@
       },
       "data_updated": {
         "name": "Datenstand"
+      }
+    },
+    "binary_sensor": {
+      "cheap_now": {
+        "name": "Jetzt günstig"
       }
     }
   }

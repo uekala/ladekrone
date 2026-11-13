@@ -16,6 +16,14 @@
       "data_updated": {
         "default": "mdi:database-clock"
       }
+    },
+    "binary_sensor": {
+      "cheap_now": {
+        "default": "mdi:piggy-bank-outline",
+        "state": {
+          "on": "mdi:piggy-bank"
+        }
+      }
     }
   }
 }

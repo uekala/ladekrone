@@ -18,6 +18,7 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 from homeassistant.util import dt as dt_util
 
 from .const import (
+    CONF_CHARGE_KWH,
     CONF_CONNECTOR,
     CONF_CURRENT,
     CONF_DATA_URL,
@@ -26,6 +27,7 @@ from .const import (
     CONF_MIN_POWER,
     CONF_OPERATORS,
     CONF_OPERATORS_ENTITY,
+    CONF_PRICE_LIMIT,
     CONF_TARIFF,
     DEFAULT_DATA_URL,
     DEFAULT_RADIUS_M,
@@ -66,6 +68,8 @@ class SearchSettings:
     data_url: str
     location_entity: str | None = None
     operators_entity: str | None = None
+    # Preisgrenze in €/kWh für „Jetzt günstig“; None = günstigster Zeitpunkt in 24 h.
+    price_limit: float | None = None
 
     @classmethod
     def from_entry(cls, entry: ConfigEntry) -> SearchSettings:
@@ -88,10 +92,12 @@ class SearchSettings:
                 operators=operators,
                 only_listed=operators_entity is not None,
                 tariff=config.get(CONF_TARIFF) or "adhoc",
+                charge_kwh=float(config.get(CONF_CHARGE_KWH) or 0),
             ),
             data_url=str(config.get(CONF_DATA_URL) or DEFAULT_DATA_URL).rstrip("/"),
             location_entity=config.get(CONF_LOCATION_ENTITY) or None,
             operators_entity=operators_entity,
+            price_limit=float(limit) if (limit := config.get(CONF_PRICE_LIMIT)) else None,
         )
 
 

@@ -303,3 +303,70 @@ async def test_operators_entity_appears_after_setup(
     count = hass.states.get("sensor.ladekrone_charging_stations_in_area")
     assert count.attributes["networks"] == ["Tesla"]
     assert hass.states.get("sensor.ladekrone_cheapest_price").attributes["operator"] == "Tesla"
+
+
+async def test_cheap_now_with_price_limit(
+    hass: HomeAssistant,
+    aioclient_mock: AiohttpClientMocker,
+    freezer: FrozenDateTimeFactory,
+    published_data,
+) -> None:
+    freezer.move_to(datetime(2026, 10, 27, 11, 0, tzinfo=UTC))  # günstigster Preis 0,49
+    _mock_data(aioclient_mock, published_data)
+    entry = _entry(hass, price_limit=0.5)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    cheap = hass.states.get("binary_sensor.ladekrone_cheap_now")
+    assert cheap.state == "on"
+    assert cheap.attributes["mode"] == "price_limit"
+    assert cheap.attributes["price_limit"] == 0.5
+    assert cheap.attributes["price"] == 0.49
+    assert cheap.attributes["operator"] == "Stadtwerke Musterstadt"
+
+    hass.config_entries.async_update_entry(entry, data={**entry.data, "price_limit": 0.45})
+    await hass.async_block_till_done()
+    assert hass.states.get("binary_sensor.ladekrone_cheap_now").state == "off"
+
+
+async def test_cheap_now_without_limit_follows_outlook(
+    hass: HomeAssistant,
+    aioclient_mock: AiohttpClientMocker,
+    freezer: FrozenDateTimeFactory,
+    published_data,
+) -> None:
+    # Mittags wird es nachts noch günstiger (Tesla 0,39 ab 23 Uhr)
+    freezer.move_to(datetime(2026, 10, 27, 11, 0, tzinfo=UTC))
+    _mock_data(aioclient_mock, published_data)
+    entry = _entry(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    cheap = hass.states.get("binary_sensor.ladekrone_cheap_now")
+    assert cheap.state == "off"
+    assert cheap.attributes["mode"] == "cheapest_in_24h"
+
+    # 23:30 Ortszeit: der Nachttarif gilt, günstiger wird es nicht
+    freezer.move_to(datetime(2026, 10, 27, 22, 30, tzinfo=UTC))
+    async_fire_time_changed(hass, dt_util.utcnow() + timedelta(minutes=6))
+    await hass.async_block_till_done(wait_background_tasks=True)
+    assert hass.states.get("binary_sensor.ladekrone_cheap_now").state == "on"
+
+
+async def test_sensor_ranks_by_charge_cost(
+    hass: HomeAssistant,
+    aioclient_mock: AiohttpClientMocker,
+    freezer: FrozenDateTimeFactory,
+    published_data,
+) -> None:
+    freezer.move_to(datetime(2026, 10, 27, 11, 0, tzinfo=UTC))
+    _mock_data(aioclient_mock, published_data)
+    entry = _entry(hass, charge_kwh=40)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    price = hass.states.get("sensor.ladekrone_cheapest_price")
+    assert price.attributes["ranked_by"] == "total_cost"
+    totals = [offer["total_cost"] for offer in price.attributes["offers"]]
+    assert totals == sorted(totals)
+    assert price.attributes["charge_kwh"] == 40
+    assert price.attributes["total_cost"] == totals[0]

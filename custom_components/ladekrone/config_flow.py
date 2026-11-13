@@ -16,6 +16,7 @@ from homeassistant.core import callback
 from homeassistant.helpers import selector
 
 from .const import (
+    CONF_CHARGE_KWH,
     CONF_CONNECTOR,
     CONF_CURRENT,
     CONF_DATA_URL,
@@ -24,6 +25,7 @@ from .const import (
     CONF_MIN_POWER,
     CONF_OPERATORS,
     CONF_OPERATORS_ENTITY,
+    CONF_PRICE_LIMIT,
     CONF_TARIFF,
     CONNECTOR_OPTIONS,
     CURRENT_OPTIONS,
@@ -66,6 +68,30 @@ def _search_schema(defaults: dict[str, Any]) -> dict:
             TARIFF_OPTIONS, CONF_TARIFF
         ),
         vol.Optional(
+            CONF_CHARGE_KWH,
+            description={"suggested_value": defaults.get(CONF_CHARGE_KWH)},
+        ): selector.NumberSelector(
+            selector.NumberSelectorConfig(
+                min=0,
+                max=150,
+                step=1,
+                unit_of_measurement="kWh",
+                mode=selector.NumberSelectorMode.BOX,
+            )
+        ),
+        vol.Optional(
+            CONF_PRICE_LIMIT,
+            description={"suggested_value": defaults.get(CONF_PRICE_LIMIT)},
+        ): selector.NumberSelector(
+            selector.NumberSelectorConfig(
+                min=0,
+                max=2,
+                step=0.01,
+                unit_of_measurement="€/kWh",
+                mode=selector.NumberSelectorMode.BOX,
+            )
+        ),
+        vol.Optional(
             CONF_OPERATORS,
             description={"suggested_value": defaults.get(CONF_OPERATORS, "")},
         ): selector.TextSelector(),
@@ -96,7 +122,7 @@ def _clean(user_input: dict[str, Any]) -> dict[str, Any]:
     location.setdefault("radius", DEFAULT_RADIUS_M)
     data[CONF_LOCATION] = location
     data[CONF_OPERATORS] = str(data.get(CONF_OPERATORS) or "").strip()
-    for key in (CONF_LOCATION_ENTITY, CONF_OPERATORS_ENTITY):
+    for key in (CONF_LOCATION_ENTITY, CONF_OPERATORS_ENTITY, CONF_CHARGE_KWH, CONF_PRICE_LIMIT):
         if not data.get(key):
             data.pop(key, None)
     return data
@@ -148,7 +174,12 @@ class LadekroneOptionsFlow(OptionsFlow):
             if not errors:
                 data = _clean(user_input)
                 # Geleerte Felder ausdrücklich leeren, sonst gälte der Wert aus der Einrichtung
-                for key in (CONF_LOCATION_ENTITY, CONF_OPERATORS_ENTITY):
+                for key in (
+                    CONF_LOCATION_ENTITY,
+                    CONF_OPERATORS_ENTITY,
+                    CONF_CHARGE_KWH,
+                    CONF_PRICE_LIMIT,
+                ):
                     data.setdefault(key, None)
                 url = str(data.get(CONF_DATA_URL) or "").strip().rstrip("/")
                 # Die Standardquelle nicht festschreiben, damit ein Umzug der Daten
