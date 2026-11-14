@@ -450,6 +450,8 @@ async function render() {
   if (loaded.failed) note(T.partial, "error");
   else if (state.offline) note(T.offline);
   else note("");
+  mapState.offers = offers;
+  updateMap();
   if (!offers.length) {
     $("winner").innerHTML = renderEmpty(count);
     $("later").innerHTML = "";
@@ -474,6 +476,123 @@ async function render() {
 // ---------------------------------------------------------------------------
 // Merken und Teilen
 // ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// Karte (erst auf Wunsch: lädt dann die Kartenbibliothek und Kartendaten von OpenFreeMap)
+// ---------------------------------------------------------------------------
+
+const MAP_STYLE = "https://tiles.openfreemap.org/styles/liberty";
+const MAP_MARKERS = 40;
+const mapState = { open: false, map: null, markers: [], loading: null, offers: [], drawn: "" };
+
+function loadMapLibrary() {
+  mapState.loading ??= new Promise((resolve, reject) => {
+    const css = document.createElement("link");
+    css.rel = "stylesheet";
+    css.href = "vendor/maplibre-gl.css";
+    document.head.append(css);
+    const script = document.createElement("script");
+    script.src = "vendor/maplibre-gl.js";
+    script.onload = () => (window.maplibregl ? resolve(window.maplibregl) : reject(new Error("maplibre")));
+    script.onerror = () => reject(new Error("maplibre"));
+    document.head.append(script);
+  }).catch((error) => {
+    mapState.loading = null;
+    throw error;
+  });
+  return mapState.loading;
+}
+
+function popupContent(offer) {
+  const box = document.createElement("div");
+  box.className = "map-popup";
+  const title = document.createElement("strong");
+  title.textContent = offer.operator || T.unknownNetwork;
+  const price = document.createElement("p");
+  price.textContent = `${euro.format(offer.price.kwh)} €/kWh · ${facts(offer).slice(1).join(", ")}`;
+  const address = document.createElement("p");
+  address.textContent = offer.address || "";
+  const route = document.createElement("a");
+  route.href = routeUrl(offer.latitude, offer.longitude);
+  route.target = "_blank";
+  route.rel = "noopener";
+  route.textContent = T.route;
+  box.append(title, price, address, route);
+  return box;
+}
+
+function drawMarkers(lib) {
+  const { map } = mapState;
+  const place = state.place;
+  if (!map || !place) return;
+  // Nur neu zeichnen, wenn sich Ort oder Angebote geändert haben: Sonst spränge die
+  // Karte bei jeder Aktualisierung zurück, während jemand sie verschiebt.
+  const key = JSON.stringify([place.lat, place.lon, mapState.offers.slice(0, MAP_MARKERS).map((o) => [o.stationId, o.price.kwh])]);
+  if (key === mapState.drawn) return;
+  mapState.drawn = key;
+  mapState.markers.forEach((marker) => marker.remove());
+  mapState.markers = [];
+  const bounds = new lib.LngLatBounds([place.lon, place.lat], [place.lon, place.lat]);
+  const here = document.createElement("div");
+  here.className = "map-here";
+  here.setAttribute("aria-label", place.label);
+  mapState.markers.push(new lib.Marker({ element: here }).setLngLat([place.lon, place.lat]).addTo(map));
+  // Rückwärts einsetzen, damit der günstigste Preis oben liegt.
+  mapState.offers.slice(0, MAP_MARKERS).reverse().forEach((offer, index, list) => {
+    const best = index === list.length - 1;
+    const pin = document.createElement("button");
+    pin.type = "button";
+    pin.className = best ? "map-pin best" : "map-pin";
+    pin.textContent = euro.format(offer.price.kwh);
+    pin.setAttribute("aria-label", `${offer.operator || T.unknownNetwork}, ${euro.format(offer.price.kwh)} €/kWh`);
+    const popup = new lib.Popup({ offset: 18, maxWidth: "220px" }).setDOMContent(popupContent(offer));
+    const position = [offer.longitude, offer.latitude];
+    mapState.markers.push(new lib.Marker({ element: pin }).setLngLat(position).setPopup(popup).addTo(map));
+    bounds.extend(position);
+  });
+  map.fitBounds(bounds, { padding: 48, maxZoom: 14, duration: 0 });
+}
+
+async function updateMap() {
+  const box = $("map");
+  box.hidden = !mapState.open;
+  const toggle = $("map-toggle");
+  toggle.textContent = mapState.open ? T.mapHide : T.map;
+  toggle.setAttribute("aria-pressed", String(mapState.open));
+  if (!mapState.open || !state.place) return;
+  try {
+    const lib = await loadMapLibrary();
+    if (!mapState.map) {
+      mapState.map = new lib.Map({
+        container: box,
+        style: MAP_STYLE,
+        center: [state.place.lon, state.place.lat],
+        zoom: 11,
+        attributionControl: { compact: true },
+        cooperativeGestures: true, // Seite bleibt mit einem Finger scrollbar
+      });
+      mapState.map.addControl(new lib.NavigationControl({ showCompass: false }), "top-right");
+      mapState.map.on("error", () => $("map-note").hidden = false);
+    }
+    mapState.map.resize();
+    drawMarkers(lib);
+  } catch {
+    mapState.open = false;
+    box.hidden = true;
+    toggle.textContent = T.map;
+    toggle.setAttribute("aria-pressed", "false");
+    note(T.mapError, "error");
+  }
+}
+
+function setupMap() {
+  $("map-note").textContent = T.mapNote;
+  $("map-toggle").addEventListener("click", () => {
+    mapState.open = !mapState.open;
+    $("map-note").hidden = true;
+    updateMap();
+  });
+}
 
 const MAX_FAVORITES = 8;
 const samePlace = (a, b) => Math.abs(a.lat - b.lat) < 1e-4 && Math.abs(a.lon - b.lon) < 1e-4;
@@ -503,6 +622,7 @@ function renderPlaceTools() {
     star.textContent = saved ? T.saved : T.save;
   }
   $("share").hidden = !place;
+  $("map-toggle").hidden = !place;
 }
 
 /** Adresse, die genau diese Suche wieder öffnet. Koordinaten auf etwa 100 m gerundet. */
@@ -798,6 +918,7 @@ async function start() {
   setupFilters();
   setupInstall();
   setupPlaceTools();
+  setupMap();
   $("locate").addEventListener("click", locate);
   loadMeta().catch(() => note(T.loadErrorShort, "error"));
 

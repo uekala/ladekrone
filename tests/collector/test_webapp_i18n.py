@@ -66,3 +66,19 @@ def test_privacy_page_exists_in_both_languages() -> None:
     worker = (WEBAPP / "sw.js").read_text(encoding="utf-8")
     for name in ("i18n.js", "privacy.html"):
         assert f'"{name}"' in worker
+
+
+def test_map_loads_only_on_request() -> None:
+    """Kartenbibliothek und Kartendienst dürfen erst nach dem Tippen auf „Karte“ geladen werden."""
+    html = (WEBAPP / "index.html").read_text(encoding="utf-8")
+    worker = (WEBAPP / "sw.js").read_text(encoding="utf-8")
+    for page in (html, worker):
+        assert "maplibre" not in page
+        assert "openfreemap" not in page
+    app = (WEBAPP / "app.js").read_text(encoding="utf-8")
+    assert app.count("tiles.openfreemap.org") == 1
+    assert app.count("loadMapLibrary()") == 2  # Definition und der Aufruf in updateMap
+    for name in ("maplibre-gl.js", "maplibre-gl.css", "maplibre-gl.LICENSE.txt"):
+        assert (WEBAPP / "vendor" / name).is_file()
+    for name in ("datenschutz.html", "privacy.html"):
+        assert "OpenFreeMap" in (WEBAPP / name).read_text(encoding="utf-8")

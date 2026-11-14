@@ -85,6 +85,10 @@ export const TEXT = {
     geoFailed: "Der Standort ließ sich gerade nicht bestimmen. Gib einen Ort oder eine PLZ ein.",
     searchDown: "Die Ortssuche ist gerade nicht erreichbar.",
     iosHint: "Auf dem iPhone: Teilen antippen und dann „Zum Home-Bildschirm“ wählen.",
+    map: "Karte",
+    mapHide: "Karte ausblenden",
+    mapError: "Die Karte konnte nicht geladen werden. Prüf deine Verbindung.",
+    mapNote: "Die Karte lädt gerade nicht vollständig. Die Liste darunter stimmt trotzdem.",
     otherLang: "English",
     page: null, // Deutsch steht schon in index.html
   },
@@ -157,6 +161,10 @@ export const TEXT = {
     geoFailed: "Your location could not be determined right now. Enter a town or postcode.",
     searchDown: "The place search is unavailable right now.",
     iosHint: "On iPhone: tap Share, then “Add to Home Screen”.",
+    map: "Map",
+    mapHide: "Hide map",
+    mapError: "The map could not be loaded. Check your connection.",
+    mapNote: "The map is not loading completely right now. The list below is still correct.",
     otherLang: "Deutsch",
     page: {
       title: "Ladekrone – cheap charging near you",
@@ -170,6 +178,7 @@ export const TEXT = {
         "q-label": "Town or postcode",
         favorite: "☆ Save",
         share: "Share",
+        "map-toggle": "Map",
         install: "Install as app",
         disclaimer:
           "Ad-hoc prices apply without a contract. With a charging card or subscription it can be cheaper or more expensive. All information without guarantee.",

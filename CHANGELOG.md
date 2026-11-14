@@ -3,6 +3,7 @@
 ## Unveröffentlicht
 
 - **Web-App auf Englisch.** Die Web-App richtet sich nach der Sprache des Browsers: Deutsch für deutsche Einstellungen, sonst Englisch. Unten auf der Seite lässt sich die Sprache wechseln; die Wahl bleibt auf dem Gerät gespeichert. Die Datenschutzseite gibt es ebenfalls auf Englisch.
+- **Karte in der Web-App.** „Karte“ zeigt die Stationen mit ihren Preisen auf einer Karte, der günstigste Preis ist hervorgehoben; ein Tipp auf einen Preis öffnet Ladenetz, Leistung und „Route starten“. Die Karte lädt erst auf Wunsch. Die Kartendaten kommen vom kostenlosen Dienst OpenFreeMap (ohne Konto, ohne Cookies); ohne die Karte geht weiterhin nichts an fremde Dienste.
 
 ## 0.9.1
 

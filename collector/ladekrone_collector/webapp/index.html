@@ -55,6 +55,7 @@
       <div class="place-tools">
         <button class="chip" id="favorite" type="button" aria-pressed="false" data-t="favorite" hidden>☆ Merken</button>
         <button class="chip" id="share" type="button" data-t="share" hidden>Teilen</button>
+        <button class="chip" id="map-toggle" type="button" aria-pressed="false" aria-controls="map" data-t="map-toggle" hidden>Karte</button>
       </div>
     </div>
     <div class="filters" aria-label="Filter" data-t="filters">
@@ -92,6 +93,8 @@
         <option value="80">Kosten für 80 kWh</option>
       </select>
     </div>
+    <div class="map" id="map" hidden></div>
+    <p class="note" id="map-note" role="status" hidden></p>
     <div id="winner"></div>
     <div id="later"></div>
     <div id="more"></div>

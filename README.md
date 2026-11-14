@@ -34,6 +34,7 @@ Seit der EU-Verordnung AFIR müssen alle Ladenetze Standorte, Leistung und Ad-ho
 - **Lohnt sich das Abo?**: Bei Vertrags- und Abotarifen der Vergleich mit dem Ad-hoc-Preis; mit deiner Grundgebühr die kWh im Monat, ab denen es sich lohnt
 - Orte merken und eine Suche als Link teilen
 - Deutsch und Englisch, je nach Sprache des Browsers; umschaltbar
+- **Karte** auf Wunsch: Stationen mit Preisen auf einer Karte. Erst dann lädt die App Kartendaten vom kostenlosen Dienst [OpenFreeMap](https://openfreemap.org/); die Kartenbibliothek [MapLibre GL JS](https://maplibre.org/) (BSD-3-Clause) liegt der App bei
 - Route mit einem Tipp in Apple Karten oder Google Maps
 - Keine Konten, keine Cookies, kein Tracking; der Standort bleibt auf dem Gerät
 
