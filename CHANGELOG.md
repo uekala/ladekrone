@@ -1,5 +1,9 @@
 # Änderungen
 
+## 0.9.1
+
+- **Ein Standort, ein Eintrag.** Manche Ladenetze melden jede Säule als eigene Station; derselbe Standort stand dann mehrfach untereinander. Gleiches Ladenetz, gleiche Adresse, gleiche Stromart und gleicher Preis erscheinen jetzt als ein Angebot mit der höchsten Leistung und allen Ladepunkten, in Karte, Sensor und Web-App. Die Zahl der Stationen und der Durchschnittspreis ändern sich dadurch nicht. Zusammengefasste Angebote tragen das Attribut `stations`.
+
 ## 0.9.0
 
 - **Echte Ladekosten.** Neue Option „Typische Ladung“ (kWh): Die Rangfolge richtet sich dann nach dem, was diese Ladung kostet – Energie, Startgebühr und Zeitgebühr – statt nur nach dem kWh-Preis. Die Angebote tragen dazu `total_cost` und `effective_price`. Die Ladedauer für die Zeitgebühr wird aus der Leistung des Ladepunkts geschätzt.
