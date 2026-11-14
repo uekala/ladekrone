@@ -1,30 +1,9 @@
 import { evaluate, localTime, tilesForRadius, distanceKm, offerRank } from "./pricing.js";
+import { TEXT, pickLang } from "./i18n.js";
 
 const DATA = "../v1/";
 const SHOWN = 30; // so viele Stationen höchstens in der Liste
 const $ = (id) => document.getElementById(id);
-
-const euro = new Intl.NumberFormat("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-const one = new Intl.NumberFormat("de-DE", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
-const whole = new Intl.NumberFormat("de-DE");
-const clock = new Intl.DateTimeFormat("de-DE", { timeZone: "Europe/Berlin", hour: "2-digit", minute: "2-digit" });
-const dateLong = new Intl.DateTimeFormat("de-DE", {
-  timeZone: "Europe/Berlin", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit",
-});
-const dateShort = new Intl.DateTimeFormat("de-DE", {
-  timeZone: "Europe/Berlin", day: "2-digit", month: "2-digit", year: "numeric",
-});
-// Betreiber melden einen Tarif meist nur bei einer Änderung neu; wie in der
-// Integration gilt ein Preis erst nach 30 Tagen ohne Meldung als alt.
-const PRICE_STALE_MS = 30 * 24 * 3600 * 1000;
-// Bleibt die App lange offen (installiert im Hintergrund), soll ein neuer Datenstand
-// des Sammlers trotzdem ankommen: meta.json höchstens so lange wiederverwenden.
-const META_MAX_AGE_MS = 15 * 60 * 1000;
-const CONNECTORS = { ccs: "CCS", type2: "Typ 2", chademo: "CHAdeMO" };
-
-// ---------------------------------------------------------------------------
-// Zustand und Einstellungen (nur auf diesem Gerät)
-// ---------------------------------------------------------------------------
 
 const store = {
   get(key, fallback) {
@@ -43,6 +22,34 @@ const store = {
     }
   },
 };
+
+// Sprache: gespeicherte Wahl, sonst die des Browsers
+// (ohne Seite, etwa in Tests, immer Deutsch)
+const lang = pickLang(store.get("lang", null), typeof document === "undefined" ? [] : navigator.languages);
+const T = TEXT[lang];
+
+const euro = new Intl.NumberFormat(T.locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const one = new Intl.NumberFormat(T.locale, { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+const whole = new Intl.NumberFormat(T.locale);
+const clock = new Intl.DateTimeFormat(T.locale, { timeZone: "Europe/Berlin", hour: "2-digit", minute: "2-digit" });
+const dateLong = new Intl.DateTimeFormat(T.locale, {
+  timeZone: "Europe/Berlin", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit",
+});
+const dateShort = new Intl.DateTimeFormat(T.locale, {
+  timeZone: "Europe/Berlin", day: "2-digit", month: "2-digit", year: "numeric",
+});
+// Betreiber melden einen Tarif meist nur bei einer Änderung neu; wie in der
+// Integration gilt ein Preis erst nach 30 Tagen ohne Meldung als alt.
+const PRICE_STALE_MS = 30 * 24 * 3600 * 1000;
+// Bleibt die App lange offen (installiert im Hintergrund), soll ein neuer Datenstand
+// des Sammlers trotzdem ankommen: meta.json höchstens so lange wiederverwenden.
+const META_MAX_AGE_MS = 15 * 60 * 1000;
+const CONNECTORS = { ccs: "CCS", type2: T.type2, chademo: "CHAdeMO" };
+
+// ---------------------------------------------------------------------------
+// Zustand und Einstellungen (nur auf diesem Gerät)
+// ---------------------------------------------------------------------------
+
 
 const state = {
   meta: null,
@@ -75,8 +82,8 @@ function when(ms) {
   const sameDay = now.year === then.year && now.month === then.month && now.day === then.day;
   const tomorrow = localTime(ms - 86400000);
   const isTomorrow = tomorrow.year === now.year && tomorrow.month === now.month && tomorrow.day === now.day;
-  const prefix = sameDay ? "" : isTomorrow ? "morgen " : "übermorgen ";
-  return `${prefix}${clock.format(ms)} Uhr`;
+  const prefix = sameDay ? "" : isTomorrow ? T.tomorrow : T.dayAfter;
+  return `${prefix}${T.clock(clock.format(ms))}`;
 }
 
 function routeUrl(lat, lon) {
@@ -87,23 +94,23 @@ function routeUrl(lat, lon) {
 }
 
 function facts(offer) {
-  const items = [`${one.format(offer.distanceKm)} km entfernt`];
+  const items = [T.away(one.format(offer.distanceKm))];
   if (offer.powerKw) items.push(`${whole.format(Math.round(offer.powerKw))} kW`);
   const plugs = offer.connectors.map((k) => CONNECTORS[k] || k).join(", ");
   const kind = [offer.current ? offer.current.toUpperCase() : "", plugs].filter(Boolean).join(" ");
   if (kind) items.push(kind);
-  if (offer.points > 1) items.push(`${offer.points} Ladepunkte`);
+  if (offer.points > 1) items.push(T.points(offer.points));
   return items;
 }
 
 function feeText(price) {
   const parts = [];
-  if (price.sessionFee) parts.push(`Startgebühr ${euro.format(price.sessionFee)} €`);
+  if (price.sessionFee) parts.push(T.sessionFee(euro.format(price.sessionFee)));
   if (price.minuteFee) {
     parts.push(
       price.minuteFeeFrom
-        ? `Blockiergebühr ${euro.format(price.minuteFee)} € pro Minute ab Minute ${price.minuteFeeFrom}`
-        : `Zeitgebühr ${euro.format(price.minuteFee)} € pro Minute`,
+        ? T.blockFee(euro.format(price.minuteFee), price.minuteFeeFrom)
+        : T.timeFee(euro.format(price.minuteFee)),
     );
   }
   return parts.join(". ");
@@ -111,8 +118,8 @@ function feeText(price) {
 
 function untilText(offer) {
   if (!offer.until) return "";
-  if (offer.nextPrice === null) return `Gilt bis ${when(offer.until)}, danach ohne Ad-hoc-Preis`;
-  return `Gilt bis ${when(offer.until)}, danach ${euro.format(offer.nextPrice)} €`;
+  if (offer.nextPrice === null) return T.untilNone(when(offer.until));
+  return T.untilNext(when(offer.until), euro.format(offer.nextPrice));
 }
 
 function note(text, kind = "") {
@@ -147,7 +154,7 @@ async function loadMeta() {
   meta.tileSet = new Set(meta.tiles);
   state.meta = meta;
   state.metaFetched = Date.now();
-  $("stand").textContent = `Stand der Daten: ${dateLong.format(new Date(meta.generated))} Uhr.`;
+  $("stand").textContent = T.stand(dateLong.format(new Date(meta.generated)));
   return meta;
 }
 
@@ -203,7 +210,7 @@ function buildPlaceIndex(rows) {
   const cities = [];
   for (const clusters of byName.values()) {
     for (const c of clusters) {
-      const hint = clusters.length > 1 ? `PLZ ${c.plz.slice(0, 2)}…` : "";
+      const hint = clusters.length > 1 ? T.plzHint(c.plz.slice(0, 2)) : "";
       const words = [c.city, ...c.city.split(/[\s-]+/).slice(1)];
       cities.push({ ...c, hint, keys: words.flatMap((w) => [fold(w), foldUmlaut(w)]) });
     }
@@ -250,9 +257,7 @@ function oldPriceDate(price) {
 
 function totalText(offer, short = false) {
   if (offer.totalCost == null || !offer.chargeKwh) return "";
-  return short
-    ? `${whole.format(offer.chargeKwh)} kWh ≈ ${euro.format(offer.totalCost)} €`
-    : `${whole.format(offer.chargeKwh)} kWh kosten hier etwa ${euro.format(offer.totalCost)} €`;
+  return (short ? T.totalShort : T.total)(whole.format(offer.chargeKwh), euro.format(offer.totalCost));
 }
 
 function trendText(offer) {
@@ -260,9 +265,7 @@ function trendText(offer) {
   const since = Date.parse(`${offer.priceSince}T12:00:00Z`);
   const cents = Math.round((offer.price.kwh - offer.previousPrice) * 100);
   if (Number.isNaN(since) || !cents) return "";
-  return `${cents > 0 ? "▲" : "▼"} Seit ${dateShort.format(since)} um ${whole.format(Math.abs(cents))} ct ${
-    cents > 0 ? "teurer" : "günstiger"
-  } (vorher ${euro.format(offer.previousPrice)} €)`;
+  return T.trend(cents > 0, dateShort.format(since), whole.format(Math.abs(cents)), euro.format(offer.previousPrice));
 }
 
 /** Ab wie vielen kWh im Monat sich ein Tarif mit Grundgebühr gegenüber ad hoc lohnt. */
@@ -276,18 +279,16 @@ function renderTariffCheck(offer, adhoc) {
   if (offer.price.tariff === "adHoc" || !adhoc) return "";
   const saving = adhoc.price.kwh - offer.price.kwh;
   if (!(saving > 1e-9)) {
-    return `<aside class="check"><strong>Kein Vorteil gegenüber ad hoc</strong>
-      <p>Ohne Vertrag kostet es hier ${euro.format(adhoc.price.kwh)} €/kWh.</p></aside>`;
+    return `<aside class="check"><strong>${esc(T.noBenefit)}</strong>
+      <p>${esc(T.adhocCosts(euro.format(adhoc.price.kwh)))}</p></aside>`;
   }
   const fee = Number(store.get("monthlyFee", 0)) || 0;
   const even = breakEvenKwh(fee, adhoc.price.kwh, offer.price.kwh);
-  const result = even === null
-    ? "Trag die Grundgebühr ein, dann siehst du, ab wann sich der Tarif lohnt."
-    : `Lohnt sich hier ab ${whole.format(Math.ceil(even))} kWh im Monat.`;
-  return `<aside class="check" aria-label="Lohnt sich der Tarif?">
-    <strong>${whole.format(Math.round(saving * 100))} ct je kWh günstiger als ad hoc (${euro.format(adhoc.price.kwh)} €)</strong>
-    <label>Grundgebühr im Monat
-      <input id="monthly-fee" type="number" inputmode="decimal" min="0" max="99" step="0.01" value="${fee || ""}" placeholder="z. B. 9,99"> €</label>
+  const result = even === null ? T.enterFee : T.worthFrom(whole.format(Math.ceil(even)));
+  return `<aside class="check" aria-label="${esc(T.checkLabel)}">
+    <strong>${esc(T.cheaperBy(whole.format(Math.round(saving * 100)), euro.format(adhoc.price.kwh)))}</strong>
+    <label>${esc(T.monthlyFee)}
+      <input id="monthly-fee" type="number" inputmode="decimal" min="0" max="99" step="0.01" value="${fee || ""}" placeholder="${esc(T.feePlaceholder)}"> €</label>
     <p id="check-result">${esc(result)}</p>
   </aside>`;
 }
@@ -295,28 +296,28 @@ function renderTariffCheck(offer, adhoc) {
 function priceNote(offer) {
   const kind = offer.price.tariff;
   if (kind && kind !== "adHoc") {
-    const label = offer.price.tariffName || { contract: "Vertragstarif", subscription: "Abo" }[kind] || kind;
-    return `<p class="price-note"><strong>${esc(label)}</strong> – vom Betreiber veröffentlicht. Wo er fehlt, gilt der Ad-hoc-Preis.</p>`;
+    const label = offer.price.tariffName || { contract: T.contract, subscription: T.subscription }[kind] || kind;
+    return `<p class="price-note"><strong>${esc(label)}</strong>${esc(T.tariffNote)}</p>`;
   }
-  return `<p class="price-note"><strong>Ad-hoc-Preis · ohne Vertrag</strong> – dein Preis mit Ladekarte oder Abo kann abweichen.</p>`;
+  return `<p class="price-note"><strong>${esc(T.adhocStrong)}</strong>${esc(T.adhocNote)}</p>`;
 }
 
 function renderWinner(offer) {
   const { street, city } = splitAddress(offer.address);
   const fees = feeText(offer.price);
   return `<article class="winner" aria-labelledby="winner-price">
-    <p class="label"><img src="icons/icon-192.png" alt="">Gerade am günstigsten</p>
+    <p class="label"><img src="icons/icon-192.png" alt="">${esc(T.cheapestNow)}</p>
     <p class="price" id="winner-price"><span class="num">${euro.format(offer.price.kwh)}</span><span class="unit">€/kWh</span></p>
     ${totalText(offer) ? `<p class="total">${esc(totalText(offer))}</p>` : ""}
     ${priceNote(offer)}
-    ${oldPriceDate(offer.price) ? `<p class="price-old">Preis vom ${esc(oldPriceDate(offer.price))}. Ob er noch gilt, ist offen.</p>` : ""}
+    ${oldPriceDate(offer.price) ? `<p class="price-old">${esc(T.oldPrice(oldPriceDate(offer.price)))}</p>` : ""}
     ${trendText(offer) ? `<p class="trend">${esc(trendText(offer))}</p>` : ""}
-    <p class="who">${esc(offer.operator || "Unbekanntes Ladenetz")}</p>
+    <p class="who">${esc(offer.operator || T.unknownNetwork)}</p>
     <p class="addr">${esc([street, city].filter(Boolean).join(", "))}</p>
     <ul class="facts">${facts(offer).map((f) => `<li>${esc(f)}</li>`).join("")}</ul>
     ${offer.until ? `<p class="until">${esc(untilText(offer))}</p>` : ""}
     ${fees ? `<p class="fees">${esc(fees)}</p>` : ""}
-    <div class="actions"><a class="btn primary" href="${routeUrl(offer.latitude, offer.longitude)}" target="_blank" rel="noopener">Route starten</a></div>
+    <div class="actions"><a class="btn primary" href="${routeUrl(offer.latitude, offer.longitude)}" target="_blank" rel="noopener">${esc(T.route)}</a></div>
   </article>`;
 }
 
@@ -327,10 +328,10 @@ function renderLater(outlook, current) {
   if (!outlook || !current || outlook.start === null || offerRank(outlook.offer) >= offerRank(current) - 1e-9) return "";
   const o = outlook.offer;
   const { city } = splitAddress(o.address);
-  const span = outlook.end ? ` bis ${when(outlook.end)}` : "";
-  return `<aside class="later" aria-label="Später günstiger">${CLOCK_ICON}
-    <strong>Später günstiger: ${euro.format(o.price.kwh)} €/kWh</strong>
-    <p>ab ${esc(when(outlook.start))}${esc(span)} bei ${esc(o.operator || "Unbekannt")}${city ? `, ${esc(city)}` : ""}, ${one.format(o.distanceKm)} km</p>
+  const text = T.laterText(when(outlook.start), outlook.end ? when(outlook.end) : "", o.operator || T.unknown, city, one.format(o.distanceKm));
+  return `<aside class="later" aria-label="${esc(T.laterLabel)}">${CLOCK_ICON}
+    <strong>${esc(T.laterTitle(euro.format(o.price.kwh)))}</strong>
+    <p>${esc(text)}</p>
   </aside>`;
 }
 
@@ -344,11 +345,11 @@ function renderList(offers) {
       .join(", ");
     return `<li><details>
       <summary>
-        <span class="op">${esc(o.operator || "Unbekanntes Ladenetz")}</span>
+        <span class="op">${esc(o.operator || T.unknownNetwork)}</span>
         <span class="p">${euro.format(o.price.kwh)}<small>€/kWh</small></span>
         <span class="sub">${esc(head)}</span>
         ${o.until ? `<span class="change">${esc(untilText(o))}</span>` : ""}
-        ${oldPriceDate(o.price) ? `<span class="change old">Preis vom ${esc(oldPriceDate(o.price))}</span>` : ""}
+        ${oldPriceDate(o.price) ? `<span class="change old">${esc(T.oldShort(oldPriceDate(o.price)))}</span>` : ""}
         ${totalText(o, true) ? `<span class="change old">${esc(totalText(o, true))}</span>` : ""}
       </summary>
       <div class="detail">
@@ -356,25 +357,25 @@ function renderList(offers) {
         <p>${esc(facts(o).slice(1).join(", "))}</p>
         ${fees ? `<p>${esc(fees)}</p>` : ""}
         ${trendText(o) ? `<p>${esc(trendText(o))}</p>` : ""}
-        <a class="btn" href="${routeUrl(o.latitude, o.longitude)}" target="_blank" rel="noopener">Route starten</a>
+        <a class="btn" href="${routeUrl(o.latitude, o.longitude)}" target="_blank" rel="noopener">${esc(T.route)}</a>
       </div>
     </details></li>`;
   });
-  return `<section class="more" aria-labelledby="more-title"><h3 id="more-title">Weitere Stationen</h3>
+  return `<section class="more" aria-labelledby="more-title"><h3 id="more-title">${esc(T.more)}</h3>
     <ul class="list">${rows.join("")}</ul></section>`;
 }
 
 function renderEmpty(count) {
   const radius = state.filters.radius;
   const text = count
-    ? `Im Umkreis von ${radius} km gibt es ${whole.format(count)} passende Stationen, aber keine meldet gerade einen Preis.`
-    : `Im Umkreis von ${radius} km gibt es keine passende Station.`;
+    ? T.emptyNoPrice(radius, whole.format(count))
+    : T.emptyNone(radius);
   const bigger = [5, 10, 25, 50].find((r) => r > radius);
   const f = state.filters;
   const filtered = f.power > 0 || f.operator || f.connector !== "any";
   return `<div class="empty"><p>${esc(text)}</p><div class="actions">${
-    bigger ? `<button class="btn" type="button" data-radius="${bigger}">Umkreis auf ${bigger} km vergrößern</button>` : ""
-  }${filtered ? '<button class="btn ghost" type="button" data-reset>Filter zurücksetzen</button>' : ""}</div></div>`;
+    bigger ? `<button class="btn" type="button" data-radius="${bigger}">${esc(T.bigger(bigger))}</button>` : ""
+  }${filtered ? `<button class="btn ghost" type="button" data-reset>${esc(T.reset)}</button>` : ""}</div></div>`;
 }
 
 function updateOperatorOptions(stations) {
@@ -387,9 +388,9 @@ function updateOperatorOptions(stations) {
   const names = [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 40).map(([n]) => n);
   const chosen = state.filters.operator;
   if (chosen && !names.includes(chosen)) names.unshift(chosen);
-  names.sort((a, b) => a.localeCompare(b, "de"));
+  names.sort((a, b) => a.localeCompare(b, lang));
   select.innerHTML =
-    '<option value="">Alle Ladenetze</option>' + names.map((n) => `<option value="${esc(n)}">${esc(n)}</option>`).join("");
+    `<option value="">${esc(T.allNetworks)}</option>` + names.map((n) => `<option value="${esc(n)}">${esc(n)}</option>`).join("");
   select.value = chosen;
 }
 
@@ -419,7 +420,7 @@ async function render() {
   syncFilterControls();
   const f = state.filters;
   if (!$("winner").innerHTML) {
-    $("winner").innerHTML = '<p class="loading">Preise werden geladen …</p>';
+    $("winner").innerHTML = `<p class="loading">${esc(T.loading)}</p>`;
   }
   let loaded;
   try {
@@ -430,7 +431,7 @@ async function render() {
     $("later").innerHTML = "";
     $("more").innerHTML = "";
     $("summary").textContent = "";
-    note("Die Preise konnten nicht geladen werden. Prüf deine Verbindung und versuch es noch einmal.", "error");
+    note(T.loadError, "error");
     return;
   }
   if (token !== renderToken) return;
@@ -446,8 +447,8 @@ async function render() {
   const { offers, outlook, count } = evaluate(loaded.stations, place.lat, place.lon, f.radius, filters, now, SHOWN + 1);
   renderPlaceTools();
   updateOperatorOptions(loaded.stations);
-  if (loaded.failed) note("Ein Teil der Umgebung konnte nicht geladen werden. Die Liste ist vielleicht unvollständig.", "error");
-  else if (state.offline) note("Du bist offline. Angezeigt werden die zuletzt geladenen Preise.");
+  if (loaded.failed) note(T.partial, "error");
+  else if (state.offline) note(T.offline);
   else note("");
   if (!offers.length) {
     $("winner").innerHTML = renderEmpty(count);
@@ -467,7 +468,7 @@ async function render() {
   $("later").innerHTML = renderLater(outlook, offers[0]);
   $("more").innerHTML = renderList(offers.slice(1, SHOWN + 1));
   $("summary").textContent =
-    `${whole.format(offers.reduce((sum, o) => sum + o.merged, 0))} von ${whole.format(count)} passenden Stationen im Umkreis von ${f.radius} km melden gerade einen Preis.`;
+    T.summary(whole.format(offers.reduce((sum, o) => sum + o.merged, 0)), whole.format(count), f.radius);
 }
 
 // ---------------------------------------------------------------------------
@@ -499,7 +500,7 @@ function renderPlaceTools() {
   if (place && !place.gps) {
     const saved = favorites().some((p) => samePlace(p, place));
     star.setAttribute("aria-pressed", String(saved));
-    star.textContent = saved ? "★ Gemerkt" : "☆ Merken";
+    star.textContent = saved ? T.saved : T.save;
   }
   $("share").hidden = !place;
 }
@@ -530,7 +531,7 @@ export function parseShared(search) {
   if (!q.has("lat") || !q.has("lon") || !(Math.abs(lat) <= 90) || !(Math.abs(lon) <= 180)) return null;
   const pick = (key, allowed, fallback) => (allowed.includes(q.get(key)) ? q.get(key) : fallback);
   return {
-    place: { lat, lon, label: (q.get("ort") || "Geteilte Suche").slice(0, 80), gps: false },
+    place: { lat, lon, label: (q.get("ort") || T.sharedSearch).slice(0, 80), gps: false },
     filters: {
       radius: Number(pick("r", ["5", "10", "25", "50"], "10")),
       power: Number(pick("kw", ["0", "22", "50", "150"], "0")),
@@ -545,17 +546,17 @@ export function parseShared(search) {
 async function share() {
   if (!state.place) return;
   const url = shareUrl(location.href, state.place, state.filters);
-  const title = `Ladepreise: ${state.place.label}`;
+  const title = T.shareTitle(state.place.label);
   try {
     if (navigator.share) {
       await navigator.share({ title, url });
       return;
     }
     await navigator.clipboard.writeText(url);
-    note("Link kopiert.");
+    note(T.copied);
   } catch (error) {
     if (error && error.name === "AbortError") return;
-    note(`Zum Teilen diesen Link kopieren: ${url}`);
+    note(T.copyThis(url));
   }
 }
 
@@ -592,21 +593,21 @@ function setPlace(place, remember) {
 
 function locate() {
   if (!("geolocation" in navigator)) {
-    note("Dein Gerät gibt keinen Standort heraus. Gib einen Ort oder eine PLZ ein.", "error");
+    note(T.noGeo, "error");
     $("q").focus();
     return;
   }
-  note("Standort wird ermittelt …");
+  note(T.locating);
   navigator.geolocation.getCurrentPosition(
     async ({ coords }) => {
       note("");
-      const place = { lat: coords.latitude, lon: coords.longitude, label: "In deiner Nähe", gps: true };
+      const place = { lat: coords.latitude, lon: coords.longitude, label: T.nearYou, gps: true };
       setPlace(place, false);
       store.set("place", null);
       const index = await loadPlaces();
       const city = index && nearestCity(index, place.lat, place.lon);
       if (city && state.place === place) {
-        place.label = `In der Nähe von ${city}`;
+        place.label = T.nearCity(city);
         $("place-title").textContent = place.label;
       }
     },
@@ -614,8 +615,8 @@ function locate() {
       const denied = error.code === error.PERMISSION_DENIED;
       note(
         denied
-          ? "Der Standort ist für diese Seite blockiert. Gib einen Ort oder eine PLZ ein, oder erlaube den Standort in den Einstellungen deines Browsers."
-          : "Der Standort ließ sich gerade nicht bestimmen. Gib einen Ort oder eine PLZ ein.",
+          ? T.geoDenied
+          : T.geoFailed,
         "error",
       );
       $("q").focus();
@@ -654,7 +655,7 @@ function setupSearch() {
     const index = await loadPlaces();
     if (query !== input.value) return;
     if (!index) {
-      note("Die Ortssuche ist gerade nicht erreichbar.", "error");
+      note(T.searchDown, "error");
       return;
     }
     items = searchPlaces(index, query);
@@ -715,9 +716,7 @@ function setupFilters() {
     const fee = Number(event.target.value.replace(",", ".")) || 0;
     store.set("monthlyFee", fee);
     const even = breakEvenKwh(fee, state.check.adhoc, state.check.tariff);
-    $("check-result").textContent = even === null
-      ? "Trag die Grundgebühr ein, dann siehst du, ab wann sich der Tarif lohnt."
-      : `Lohnt sich hier ab ${whole.format(Math.ceil(even))} kWh im Monat.`;
+    $("check-result").textContent = even === null ? T.enterFee : T.worthFrom(whole.format(Math.ceil(even)));
   });
   $("winner").addEventListener("click", (event) => {
     if (event.target.closest("[data-reset]")) {
@@ -753,19 +752,54 @@ function setupInstall() {
   const standalone = window.matchMedia("(display-mode: standalone)").matches || navigator.standalone;
   const ios = /iPad|iPhone|iPod/.test(navigator.userAgent);
   if (ios && !standalone) {
-    $("install-hint").textContent = "Auf dem iPhone: Teilen antippen und dann „Zum Home-Bildschirm“ wählen.";
+    $("install-hint").textContent = T.iosHint;
     $("install-hint").hidden = false;
   }
   if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
 }
 
+/** Setzt die Texte der Seite in der gewählten Sprache und richtet den Sprachwechsel ein. */
+function setupLanguage() {
+  document.documentElement.lang = lang;
+  const page = T.page;
+  if (page) {
+    document.title = page.title;
+    document.querySelector('meta[name="description"]')?.setAttribute("content", page.description);
+    for (const [key, text] of Object.entries(page.text)) {
+      const el = document.querySelector(`[data-t="${key}"]`);
+      if (el) el.textContent = text;
+    }
+    for (const [key, html] of Object.entries(page.html)) {
+      const el = document.querySelector(`[data-t="${key}"]`);
+      if (el) el.innerHTML = html; // feste Texte aus i18n.js, keine fremden Daten
+    }
+    for (const [key, attrs] of Object.entries(page.attrs)) {
+      const el = document.querySelector(`[data-t="${key}"]`) || $(key);
+      if (el) for (const [name, value] of Object.entries(attrs)) el.setAttribute(name, value);
+    }
+    for (const [id, options] of Object.entries(page.options)) {
+      for (const option of $(id)?.options || []) {
+        if (option.value in options) option.textContent = options[option.value];
+      }
+    }
+  }
+  const button = $("lang");
+  button.textContent = T.otherLang;
+  button.lang = lang === "de" ? "en" : "de";
+  button.addEventListener("click", () => {
+    store.set("lang", lang === "de" ? "en" : "de");
+    location.reload();
+  });
+}
+
 async function start() {
+  setupLanguage();
   setupSearch();
   setupFilters();
   setupInstall();
   setupPlaceTools();
   $("locate").addEventListener("click", locate);
-  loadMeta().catch(() => note("Die Preise konnten nicht geladen werden. Prüf deine Verbindung.", "error"));
+  loadMeta().catch(() => note(T.loadErrorShort, "error"));
 
   const saved = store.get("place", null);
   let granted = false;

@@ -33,6 +33,7 @@ Seit der EU-Verordnung AFIR müssen alle Ladenetze Standorte, Leistung und Ad-ho
 - **Preisverlauf**: zeigt, seit wann ein Preis gilt und was er vorher war
 - **Lohnt sich das Abo?**: Bei Vertrags- und Abotarifen der Vergleich mit dem Ad-hoc-Preis; mit deiner Grundgebühr die kWh im Monat, ab denen es sich lohnt
 - Orte merken und eine Suche als Link teilen
+- Deutsch und Englisch, je nach Sprache des Browsers; umschaltbar
 - Route mit einem Tipp in Apple Karten oder Google Maps
 - Keine Konten, keine Cookies, kein Tracking; der Standort bleibt auf dem Gerät
 

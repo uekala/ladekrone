@@ -19,26 +19,26 @@
 <body>
 <div class="app">
 <header class="bar">
-  <a class="brand" href="./" aria-label="Ladekrone, Startseite">
+  <a class="brand" href="./" aria-label="Ladekrone, Startseite" data-t="brand">
     <img src="icons/icon-192.png" alt="" width="36" height="36">Ladekrone
   </a>
-  <a class="about" href="../">Über die Daten</a>
+  <a class="about" href="../" data-t="brand-about">Über die Daten</a>
 </header>
 
 <main id="main">
   <section class="start" id="start" aria-labelledby="start-title">
-    <h1 id="start-title">Wo lädst du gerade am günstigsten?</h1>
-    <p class="lead">Ladekrone vergleicht die Preise ohne Vertrag an den Ladesäulen in deiner Nähe,
+    <h1 id="start-title" data-t="start-title">Wo lädst du gerade am günstigsten?</h1>
+    <p class="lead" data-t="lead">Ladekrone vergleicht die Preise ohne Vertrag an den Ladesäulen in deiner Nähe,
     auch für später am Tag. Die Preise melden die Ladenetze selbst.</p>
   </section>
 
   <div class="where">
     <button class="btn locate" id="locate" type="button">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5a.9.9 0 0 1 .9.9v1.66a7 7 0 0 1 6.04 6.04h1.66a.9.9 0 1 1 0 1.8h-1.66a7 7 0 0 1-6.04 6.04v1.66a.9.9 0 1 1-1.8 0v-1.66a7 7 0 0 1-6.04-6.04H3.4a.9.9 0 1 1 0-1.8h1.66a7 7 0 0 1 6.04-6.04V3.4a.9.9 0 0 1 .9-.9Zm0 4.3a5.2 5.2 0 1 0 0 10.4 5.2 5.2 0 0 0 0-10.4Zm0 2.7a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5Z"/></svg>
-      <span>Meinen Standort verwenden</span>
+      <span data-t="locate-text">Meinen Standort verwenden</span>
     </button>
     <div class="search" role="search">
-      <label for="q" class="visually-hidden">Ort oder Postleitzahl</label>
+      <label for="q" class="visually-hidden" data-t="q-label">Ort oder Postleitzahl</label>
       <input id="q" type="search" placeholder="Ort oder PLZ" autocomplete="off" spellcheck="false"
         role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="suggestions">
       <ul id="suggestions" role="listbox" aria-label="Vorschläge" hidden></ul>
@@ -53,11 +53,11 @@
     <div class="place-row">
       <h2 class="place" id="place-title"></h2>
       <div class="place-tools">
-        <button class="chip" id="favorite" type="button" aria-pressed="false" hidden>☆ Merken</button>
-        <button class="chip" id="share" type="button" hidden>Teilen</button>
+        <button class="chip" id="favorite" type="button" aria-pressed="false" data-t="favorite" hidden>☆ Merken</button>
+        <button class="chip" id="share" type="button" data-t="share" hidden>Teilen</button>
       </div>
     </div>
-    <div class="filters" aria-label="Filter">
+    <div class="filters" aria-label="Filter" data-t="filters">
       <select id="f-power" aria-label="Mindestleistung">
         <option value="0">Alle Leistungen</option>
         <option value="22">ab 22 kW</option>
@@ -101,14 +101,15 @@
 
 <footer class="foot">
   <p id="install-hint" hidden></p>
-  <button class="btn ghost" id="install" type="button" hidden>Als App installieren</button>
-  <p>Ad-hoc-Preise gelten ohne Vertrag. Mit Ladekarte oder Abo kann es günstiger oder teurer sein.
+  <button class="btn ghost" id="install" type="button" data-t="install" hidden>Als App installieren</button>
+  <p data-t="disclaimer">Ad-hoc-Preise gelten ohne Vertrag. Mit Ladekarte oder Abo kann es günstiger oder teurer sein.
   Alle Angaben ohne Gewähr.</p>
   <p id="stand"></p>
-  <p>Daten: AFIR-Meldungen der Ladenetze über die <a href="https://mobilithek.info/">Mobilithek</a>,
+  <p data-t="sources">Daten: AFIR-Meldungen der Ladenetze über die <a href="https://mobilithek.info/">Mobilithek</a>,
   <a href="../#quellen">Quellen und Lizenzen</a>.
   <a href="datenschutz.html">Datenschutz</a>.
   <a href="https://github.com/uekala/ladekrone">Quellcode</a>.</p>
+  <p><button class="chip" id="lang" type="button">English</button></p>
 </footer>
 </div>
 </body>

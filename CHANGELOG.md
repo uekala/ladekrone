@@ -1,5 +1,9 @@
 # Änderungen
 
+## Unveröffentlicht
+
+- **Web-App auf Englisch.** Die Web-App richtet sich nach der Sprache des Browsers: Deutsch für deutsche Einstellungen, sonst Englisch. Unten auf der Seite lässt sich die Sprache wechseln; die Wahl bleibt auf dem Gerät gespeichert. Die Datenschutzseite gibt es ebenfalls auf Englisch.
+
 ## 0.9.1
 
 - **Ein Standort, ein Eintrag.** Manche Ladenetze melden jede Säule als eigene Station; derselbe Standort stand dann mehrfach untereinander. Gleiches Ladenetz, gleiche Adresse, gleiche Stromart und gleicher Preis erscheinen jetzt als ein Angebot mit der höchsten Leistung und allen Ladepunkten, in Karte, Sensor und Web-App. Die Zahl der Stationen und der Durchschnittspreis ändern sich dadurch nicht. Zusammengefasste Angebote tragen das Attribut `stations`.
