@@ -2,9 +2,9 @@ name: Daten sammeln
 
 on:
   schedule:
-    # Alle 6 Stunden (UTC). GitHub startet geplante Läufe oft Stunden später;
-    # mehrere Läufe am Tag halten die Daten trotzdem frisch, vor allem dynamische Preise.
-    - cron: "47 1,7,13,19 * * *"
+    # Jede Stunde. GitHub startet geplante Läufe oft verspätet und lässt bei Last
+    # einzelne aus; viele Termine halten die Daten trotzdem frisch.
+    - cron: "23 * * * *"
   workflow_dispatch:
 
 permissions:

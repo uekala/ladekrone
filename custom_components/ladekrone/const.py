@@ -32,7 +32,8 @@ UPDATE_INTERVAL: Final = timedelta(minutes=5)
 # ist also die letzte Änderung, nicht der letzte Abruf; erst nach 30 Tagen gilt
 # ein Preis als alt.
 PRICE_STALE_AFTER: Final = timedelta(days=30)
-FETCH_INTERVAL: Final = timedelta(hours=6)
+# Stündlich nachsehen; dank ETag kostet das ohne neue Daten nur eine kurze Anfrage je Datei.
+FETCH_INTERVAL: Final = timedelta(hours=1)
 REQUEST_TIMEOUT: Final = 30
 TOP_OFFERS: Final = 5
 SUPPORTED_FORMAT: Final = 1

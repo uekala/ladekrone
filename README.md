@@ -44,10 +44,10 @@ Die Preislogik ist dieselbe wie in der Integration; ein Test vergleicht beide.
 
 ```
 Mobilithek (AFIR-Angebote der Ladenetze)
-   │  alle 6 Stunden, GitHub Action mit Client-Zertifikat
+   │  stündlich, GitHub Action mit Client-Zertifikat
    ▼
 GitHub Pages: kompakte JSON-Kacheln (0,25° × 0,25°)
-   │  alle 6 Stunden, nur die Kacheln im eigenen Umkreis
+   │  stündlich, nur die Kacheln im eigenen Umkreis
    ▼
 Home Assistant: Preise alle 5 Minuten neu bewertet (Zeitfenster!)
 ```
@@ -200,7 +200,7 @@ Die Entitäts-IDs hängen vom gewählten Namen ab.
 
 ## Grenzen
 
-- Die Daten werden alle 6 Stunden aufbereitet; GitHub startet geplante Läufe allerdings oft deutlich später. Dynamische Preise kommen deshalb mit einigen Stunden Verzug an.
+- Die Daten werden stündlich aufbereitet, und Home Assistant sieht stündlich nach; GitHub startet geplante Läufe allerdings oft verspätet oder lässt einzelne aus. Aktueller als die Meldung des Betreibers kann ein Preis nie sein: Viele Ladenetze melden einen Tarif nur, wenn er sich ändert, und dynamische Preise liefert bisher kaum ein Netz.
 - Nicht alle Ladenetze melden schon an die Mobilithek, und nicht jede gemeldete Säule hat einen Preis. Qwello meldet derzeit weder statisch noch dynamisch Preise.
 - Nur Deutschland.
 - Gelesen wird DATEX II v3 als JSON. Das schreibt der Leitfaden der Mobilithek für AFIR-Angebote vor; alle abonnierten Angebote liefern es.

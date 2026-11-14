@@ -101,7 +101,8 @@ async def test_price_follows_time_of_day_without_refetch(
     freezer: FrozenDateTimeFactory,
     published_data,
 ) -> None:
-    freezer.move_to(datetime(2026, 10, 27, 18, 0, tzinfo=UTC))  # 19:00 Ortszeit
+    # weniger als eine Stunde vor dem Tarifwechsel: bis dahin wird nicht neu geladen
+    freezer.move_to(datetime(2026, 10, 27, 21, 40, tzinfo=UTC))  # 22:40 Ortszeit
     _mock_data(aioclient_mock, published_data)
     entry = _entry(hass, operators="Tesla")
     assert await hass.config_entries.async_setup(entry.entry_id)

@@ -96,7 +96,7 @@ async def test_diagnostics_show_fetch_state_and_collector_report(
     assert fetch["format"] == 1
     assert fetch["last_fetch"] == "2026-10-27T11:00:00+00:00"
     assert fetch["last_fetch_error"] is None
-    assert fetch["fetch_interval_hours"] == 6
+    assert fetch["fetch_interval_hours"] == 1
     assert fetch["tiles_wanted"] >= 1
     assert fetch["tiles_loaded"] == fetch["tiles_wanted"]
     assert fetch["tiles_missing"] == 0
@@ -150,7 +150,7 @@ async def test_failed_refetch_is_visible_while_old_data_is_used(
     aioclient_mock.clear_requests()
     aioclient_mock.get(f"{DATA_URL}/meta.json", status=503)
     aioclient_mock.get(f"{DATA_URL}/diag.json", json=COLLECTOR_DIAG)
-    freezer.tick(timedelta(hours=6, minutes=1))
+    freezer.tick(timedelta(hours=1, minutes=1))
     async_fire_time_changed(hass, dt_util.utcnow())
     await hass.async_block_till_done()
 
@@ -158,7 +158,7 @@ async def test_failed_refetch_is_visible_while_old_data_is_used(
 
     fetch = diagnostics["fetch"]
     assert fetch["last_fetch"] == "2026-10-27T11:00:00+00:00"
-    assert fetch["last_fetch_attempt"] == "2026-10-27T17:01:00+00:00"
+    assert fetch["last_fetch_attempt"] == "2026-10-27T12:01:00+00:00"
     assert fetch["last_fetch_error"].startswith("ClientResponseError")
     assert diagnostics["last_update_success"] is True
     assert diagnostics["offers"] > 0
