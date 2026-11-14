@@ -50,6 +50,7 @@ from .pricing import (
     distance_km,
     find_offers,
     future_steps,
+    merge_sites,
     stations_in_radius,
     tiles_for_radius,
 )
@@ -144,7 +145,8 @@ def evaluate(
     """Preise jetzt und (optional) für die nächsten 24 Stunden (läuft im Executor)."""
     lat, lon, filters = settings.latitude, settings.longitude, settings.filters
     nearby = stations_in_radius(stations, lat, lon, settings.radius_km)
-    offers = find_offers(nearby, lat, lon, settings.radius_km, filters, now)
+    # Je Standort ein Angebot; Offer.merged zählt die zusammengefassten Stationen.
+    offers = merge_sites(find_offers(nearby, lat, lon, settings.radius_km, filters, now))
     steps = future_steps(now)
     by_id = {station["id"]: station for station in nearby if "id" in station}
     annotate_changes(offers[:TOP_OFFERS], by_id, lat, lon, filters, steps)

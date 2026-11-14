@@ -48,7 +48,7 @@ async def async_get_config_entry_diagnostics(
         ),
         "fetch": coordinator.diagnostics(),
         "station_count": data.station_count if data else None,
-        "offers": len(data.offers) if data else 0,
+        "offers": sum(offer.merged for offer in data.offers) if data else 0,
         "top_offers": async_redact_data(
             [offer.as_dict() for offer in data.offers[:3]] if data else [], TO_REDACT
         ),

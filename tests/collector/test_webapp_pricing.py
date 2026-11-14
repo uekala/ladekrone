@@ -17,6 +17,7 @@ from custom_components.ladekrone.pricing import (
     count_stations,
     find_offers,
     future_steps,
+    merge_sites,
     stations_in_radius,
 )
 from ladekrone_collector.datex import parse_bytes
@@ -173,6 +174,31 @@ def _synthetic() -> list[dict]:
             [{"p": [{"t": "kwh", "v": 0.57}]}],
             h=[["2026-09-01", 0.52], ["2026-10-01", 0.57]],
         ),
+        # ein Standort, vom Ladenetz als drei Stationen gemeldet
+        _station(
+            "site-1",
+            0.02,
+            [{**DC, "kw": 150}],
+            [{"p": [{"t": "kwh", "v": 0.61}]}],
+            a="Hof 1, 12345 Ort",
+            o="Hofnetz",
+        ),
+        _station(
+            "site-2",
+            0.02,
+            [{**DC, "kw": 300}],
+            [{"p": [{"t": "kwh", "v": 0.61}]}],
+            a="Hof 1,  12345 ort",
+            o="hofnetz ",
+        ),
+        _station(
+            "site-3",
+            0.02,
+            [{**DC, "kw": 50, "k": ["chademo"], "n": 1}],
+            [{"p": [{"t": "kwh", "v": 0.61}]}],
+            a="Hof 1, 12345 Ort",
+            o="Hofnetz",
+        ),
         _station("history-stale", 0.014, [DC], [{"p": [{"t": "kwh", "v": 0.58}]}], h=[["x"], 7]),
         _station(
             "history-other",
@@ -272,7 +298,7 @@ def _python(stations: list[dict], case: dict) -> dict:
     )
     now = datetime.fromtimestamp(case["now"] / 1000, UTC)
     nearby = stations_in_radius(stations, lat, lon, radius)
-    offers = find_offers(nearby, lat, lon, radius, filters, now)
+    offers = merge_sites(find_offers(nearby, lat, lon, radius, filters, now))
     steps = future_steps(now)
     by_id = {s["id"]: s for s in nearby}
     annotate_changes(offers[:TOP], by_id, lat, lon, filters, steps)
@@ -294,6 +320,10 @@ def _python(stations: list[dict], case: dict) -> dict:
                 o.total_cost,
                 o.previous_price,
                 o.price_since,
+                o.merged,
+                o.points,
+                o.power_kw,
+                o.connectors,
             ]
             for o in offers
         ],
@@ -355,7 +385,7 @@ def test_webapp_matches_integration(tmp_path: Path) -> None:
     )
     js_results = json.loads(run.stdout)
     assert len(js_results) == len(cases)
-    checked_changes = checked_costs = checked_history = 0
+    checked_changes = checked_costs = checked_history = checked_merged = 0
     for case, js in zip(cases, js_results, strict=True):
         py = _python(stations, case)
         assert js["count"] == py["count"], case
@@ -371,8 +401,10 @@ def test_webapp_matches_integration(tmp_path: Path) -> None:
                 checked_costs += 1
             assert js_offer[8:] == py_offer[8:], (case, js_offer, py_offer)
             checked_history += js_offer[8] is not None
+            checked_merged += js_offer[10] > 1
             checked_changes += js_offer[3] is not None
         assert js["outlook"] == py["outlook"], case
     assert checked_changes > 20  # die Zeitfenster wurden wirklich geprüft
     assert checked_costs > 100  # ebenso die Ladekosten
     assert checked_history > 20  # und der Preisverlauf
+    assert checked_merged > 20  # und zusammengefasste Standorte

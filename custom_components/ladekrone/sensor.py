@@ -74,7 +74,8 @@ def _average_value(data: LadekroneData) -> float | None:
     """Mittlerer aktueller Ad-hoc-Preis aller passenden Stationen mit Preis."""
     if not data.offers:
         return None
-    return round(sum(offer.price.kwh for offer in data.offers) / len(data.offers), 4)
+    stations = sum(offer.merged for offer in data.offers)
+    return round(sum(offer.price.kwh * offer.merged for offer in data.offers) / stations, 4)
 
 
 def _average_attrs(data: LadekroneData) -> dict[str, Any]:
@@ -138,7 +139,7 @@ SENSORS: tuple[LadekroneSensorDescription, ...] = (
         state_class=SensorStateClass.MEASUREMENT,
         value_fn=lambda data: data.station_count,
         attrs_fn=lambda data: {
-            "with_price": len(data.offers),
+            "with_price": sum(offer.merged for offer in data.offers),
             "center_source": data.center_source,
             "center_latitude": data.center[0] if data.center else None,
             "center_longitude": data.center[1] if data.center else None,

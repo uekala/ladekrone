@@ -442,6 +442,7 @@ export function bestOffer(station, lat, lon, filters, local) {
     totalCost: filters.chargeKwh > 0 ? value : null,
     previousPrice,
     priceSince,
+    merged: 1,
   };
 }
 
@@ -472,6 +473,39 @@ export function findOffers(stations, lat, lon, radiusKm, filters, nowMs) {
   }
   offers.sort((a, b) => round4(offerRank(a)) - round4(offerRank(b)) || a.distanceKm - b.distanceKm);
   return offers;
+}
+
+function siteKey(offer) {
+  const address = (offer.address || "").toLowerCase().split(/\s+/).filter(Boolean).join(" ");
+  const place = address || `${offer.latitude.toFixed(4)},${offer.longitude.toFixed(4)}`;
+  return JSON.stringify([
+    (offer.operator || "").trim().toLowerCase(),
+    place,
+    offer.current,
+    offer.price.tariff,
+    round4(offerRank(offer)),
+    round4(offer.price.kwh),
+  ]);
+}
+
+/** Fasst Angebote desselben Standorts zum selben Preis zusammen (wie merge_sites). */
+export function mergeSites(offers) {
+  const sites = new Map();
+  for (const offer of offers) {
+    const key = siteKey(offer);
+    const first = sites.get(key);
+    if (!first) {
+      sites.set(key, { ...offer, connectors: [...offer.connectors] });
+      continue;
+    }
+    first.merged += offer.merged;
+    first.points += offer.points;
+    if ((offer.powerKw || 0) > (first.powerKw || 0)) first.powerKw = offer.powerKw;
+    for (const connector of offer.connectors) {
+      if (!first.connectors.includes(connector)) first.connectors.push(connector);
+    }
+  }
+  return [...sites.values()];
 }
 
 export function countStations(stations, lat, lon, radiusKm, filters) {
@@ -552,7 +586,7 @@ export function cheapestAhead(nearby, current, lat, lon, filters, nowMs, locals)
 export function evaluate(stations, lat, lon, radiusKm, rawFilters, nowMs, annotate = TOP_OFFERS) {
   const filters = normalizeFilters(rawFilters);
   const nearby = stationsInRadius(stations, lat, lon, radiusKm);
-  const offers = findOffers(nearby, lat, lon, radiusKm, filters, nowMs);
+  const offers = mergeSites(findOffers(nearby, lat, lon, radiusKm, filters, nowMs));
   const locals = stepLocals(futureSteps(nowMs));
   const byId = new Map(nearby.filter((s) => "id" in s).map((s) => [s.id, s]));
   annotateChanges(offers.slice(0, annotate), byId, lat, lon, filters, locals);

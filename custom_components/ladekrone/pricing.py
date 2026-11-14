@@ -10,7 +10,7 @@ from __future__ import annotations
 import math
 import re
 from collections.abc import Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime, time, timedelta
 from functools import lru_cache
 from typing import Any
@@ -92,6 +92,8 @@ class Offer:
     # Letzte Preisänderung laut Verlauf des Datensammlers
     previous_price: float | None = None
     price_since: str | None = None
+    # So viele gemeldete Stationen desselben Standorts stecken in diesem Angebot
+    merged: int = 1
 
     @property
     def rank(self) -> float:
@@ -120,6 +122,8 @@ class Offer:
             data["charge_kwh"] = self.charge_kwh
             data["total_cost"] = round(self.total_cost, 2)
             data["effective_price"] = round(self.total_cost / self.charge_kwh, 3)
+        if self.merged > 1:
+            data["stations"] = self.merged
         if self.previous_price is not None:
             data["previous_price"] = round(self.previous_price, 2)
             data["price_since"] = self.price_since
@@ -544,6 +548,44 @@ def find_offers(
             offers.append(offer)
     offers.sort(key=lambda o: (round(o.rank, 4), o.distance_km))
     return offers
+
+
+def _site_key(offer: Offer) -> tuple:
+    address = " ".join((offer.address or "").lower().split())
+    place = address or (round(offer.latitude, 4), round(offer.longitude, 4))
+    return (
+        (offer.operator or "").strip().lower(),
+        place,
+        offer.current,
+        offer.price.tariff,
+        round(offer.rank, 4),
+        round(offer.price.kwh, 4),
+    )
+
+
+def merge_sites(offers: list[Offer]) -> list[Offer]:
+    """Fasst Angebote desselben Standorts zum selben Preis zusammen.
+
+    Manche Ladenetze melden jede Säule als eigene Station. Gleiches Ladenetz,
+    gleiche Adresse, gleiche Stromart und gleicher Preis ergeben ein Angebot:
+    das erste der Rangfolge, mit der höchsten Leistung, allen Steckern und der
+    Summe der Ladepunkte. Die Reihenfolge bleibt erhalten.
+    """
+    sites: dict[tuple, Offer] = {}
+    for offer in offers:
+        key = _site_key(offer)
+        first = sites.get(key)
+        if first is None:
+            sites[key] = replace(offer, connectors=list(offer.connectors))
+            continue
+        first.merged += offer.merged
+        first.points += offer.points
+        if (offer.power_kw or 0) > (first.power_kw or 0):
+            first.power_kw = offer.power_kw
+        for connector in offer.connectors:
+            if connector not in first.connectors:
+                first.connectors.append(connector)
+    return list(sites.values())
 
 
 def count_stations(

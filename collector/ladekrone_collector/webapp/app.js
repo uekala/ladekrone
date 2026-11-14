@@ -467,7 +467,7 @@ async function render() {
   $("later").innerHTML = renderLater(outlook, offers[0]);
   $("more").innerHTML = renderList(offers.slice(1, SHOWN + 1));
   $("summary").textContent =
-    `${whole.format(offers.length)} von ${whole.format(count)} passenden Stationen im Umkreis von ${f.radius} km melden gerade einen Preis.`;
+    `${whole.format(offers.reduce((sum, o) => sum + o.merged, 0))} von ${whole.format(count)} passenden Stationen im Umkreis von ${f.radius} km melden gerade einen Preis.`;
 }
 
 // ---------------------------------------------------------------------------

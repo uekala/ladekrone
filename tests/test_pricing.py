@@ -14,6 +14,7 @@ from custom_components.ladekrone.pricing import (
     charge_cost,
     current_price,
     find_offers,
+    merge_sites,
     period_matches,
     tiles_for_radius,
     validity_matches,
@@ -330,3 +331,54 @@ def test_history_is_ignored_when_another_price_applies() -> None:
     # kaputter Verlauf stört nicht
     station["h"] = [["x"], "y"]
     assert find_offers([station], *HOME, 5, Filters(), _local(12))[0].previous_price is None
+
+
+# --------------------------------------------------------------------------
+# Standorte, die ein Ladenetz als mehrere Stationen meldet
+# --------------------------------------------------------------------------
+
+
+def _site(sid: str, kw: float, price: float, address: str, **extra) -> dict:
+    station = _plain_station(sid, 0.001, kw, [{"t": "kwh", "v": price}])
+    station.update({"o": "ENBW", "a": address}, **extra)
+    return station
+
+
+def test_merge_sites_combines_stations_of_one_site() -> None:
+    stations = [
+        _site("a", 150, 0.79, "Hof 1, 12345 Ort"),
+        _site("b", 300, 0.79, "Hof 1,  12345 ort"),
+        _site("c", 300, 0.79, "Hof 1, 12345 Ort"),
+        _site("d", 150, 0.79, "Weg 2, 12345 Ort"),  # anderer Standort
+        _site("e", 50, 0.59, "Hof 1, 12345 Ort"),  # anderer Preis am selben Standort
+        _site("f", 150, 0.79, "Hof 1, 12345 Ort", o="Allego"),  # anderes Ladenetz
+    ]
+    offers = find_offers(stations, *HOME, 5, Filters(), _local(12))
+    assert len(offers) == 6
+    sites = merge_sites(offers)
+    assert [(o.station_id, o.merged) for o in sites] == [
+        ("e", 1),
+        ("a", 3),
+        ("d", 1),
+        ("f", 1),
+    ]
+    site = sites[1]
+    assert (site.power_kw, site.points) == (300, 6)
+    assert site.as_dict()["stations"] == 3
+    assert "stations" not in sites[0].as_dict()
+    # die Eingabe bleibt unverändert, zweimal Zusammenfassen ändert nichts mehr
+    assert all(o.merged == 1 and o.points == 2 for o in offers)
+    again = merge_sites(sites)
+    assert [(o.station_id, o.merged, o.points) for o in again] == [
+        (o.station_id, o.merged, o.points) for o in sites
+    ]
+
+
+def test_merge_sites_keeps_ac_and_dc_apart_and_falls_back_to_coordinates() -> None:
+    ac = _site("ac", 22, 0.59, "Hof 1, 12345 Ort")
+    ac["g"][0].update(c="ac", k=["type2"])
+    dc = _site("dc", 150, 0.59, "Hof 1, 12345 Ort")
+    no_address = [_site("x", 150, 0.6, ""), _site("y", 300, 0.6, "")]
+    offers = find_offers([ac, dc, *no_address], *HOME, 5, Filters(), _local(12))
+    sites = merge_sites(offers)
+    assert sorted((o.station_id, o.merged) for o in sites) == [("ac", 1), ("dc", 1), ("x", 2)]
