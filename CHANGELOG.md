@@ -3,6 +3,7 @@
 ## 0.9.2
 
 - **Aktuellere Preise.** Der Datensammler läuft jetzt stündlich statt alle 6 Stunden, und Home Assistant sieht stündlich nach neuen Daten statt alle 6 Stunden. Ohne neue Daten kostet das nur eine kurze Anfrage.
+- **Web-App übersichtlicher.** Die Filter klappen hinter einen Knopf „Filter“, der zeigt, wie viele gesetzt sind; der günstigste Preis steht dadurch am Handy gleich oben. Jede Zeile der Liste zeigt jetzt Straße und Ort sowie Entfernung, Leistung und Stromart, und ein Pfeil zeigt, dass sie sich aufklappen lässt. Neu ist die Rangfolge „Nach Entfernung“ für die nächste Station.
 - **Web-App auf Englisch.** Die Web-App richtet sich nach der Sprache des Browsers: Deutsch für deutsche Einstellungen, sonst Englisch. Unten auf der Seite lässt sich die Sprache wechseln; die Wahl bleibt auf dem Gerät gespeichert. Die Datenschutzseite gibt es ebenfalls auf Englisch.
 - **Karte in der Web-App.** „Karte“ zeigt die Stationen mit ihren Preisen auf einer Karte, der günstigste Preis ist hervorgehoben; ein Tipp auf einen Preis öffnet Ladenetz, Leistung und „Route starten“. Die Karte lädt erst auf Wunsch. Die Kartendaten kommen vom kostenlosen Dienst OpenFreeMap (ohne Konto, ohne Cookies); ohne die Karte geht weiterhin nichts an fremde Dienste.
 

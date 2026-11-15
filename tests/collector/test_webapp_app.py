@@ -96,3 +96,8 @@ def test_new_data_arrives_without_reload(result: dict) -> None:
     assert (same["price"], same["meta"], same["tiles"]) == (0.29, 3, late["tiles"])
     # Ohne Netz weiter mit dem bisherigen Stand statt Fehler
     assert (offline["price"], offline["failed"], offline["tiles"]) == (0.29, 0, late["tiles"])
+
+
+def test_sorting_by_distance_survives_sharing(result: dict) -> None:
+    assert parse_qs(urlsplit(result["near"]).query)["kwh"] == ["near"]
+    assert result["nearBack"] == "near"

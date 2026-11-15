@@ -302,11 +302,11 @@ function priceNote(offer) {
   return `<p class="price-note"><strong>${esc(T.adhocStrong)}</strong>${esc(T.adhocNote)}</p>`;
 }
 
-function renderWinner(offer) {
+function renderWinner(offer, near = false) {
   const { street, city } = splitAddress(offer.address);
   const fees = feeText(offer.price);
   return `<article class="winner" aria-labelledby="winner-price">
-    <p class="label"><img src="icons/icon-192.png" alt="">${esc(T.cheapestNow)}</p>
+    <p class="label"><img src="icons/icon-192.png" alt="">${esc(near ? T.nearest : T.cheapestNow)}</p>
     <p class="price" id="winner-price"><span class="num">${euro.format(offer.price.kwh)}</span><span class="unit">€/kWh</span></p>
     ${totalText(offer) ? `<p class="total">${esc(totalText(offer))}</p>` : ""}
     ${priceNote(offer)}
@@ -340,20 +340,21 @@ function renderList(offers) {
   const rows = offers.map((o) => {
     const { street, city } = splitAddress(o.address);
     const fees = feeText(o.price);
-    const head = [city || street, `${one.format(o.distanceKm)} km`, o.powerKw ? `${whole.format(Math.round(o.powerKw))} kW` : ""]
+    const head = [`${one.format(o.distanceKm)} km`, o.powerKw ? `${whole.format(Math.round(o.powerKw))} kW` : "", o.current.toUpperCase()]
       .filter(Boolean)
-      .join(", ");
+      .join(" · ");
+    const where = [street, city].filter(Boolean).join(", ");
     return `<li><details>
       <summary>
         <span class="op">${esc(o.operator || T.unknownNetwork)}</span>
         <span class="p">${euro.format(o.price.kwh)}<small>€/kWh</small></span>
         <span class="sub">${esc(head)}</span>
+        ${where ? `<span class="sub where">${esc(where)}</span>` : ""}
         ${o.until ? `<span class="change">${esc(untilText(o))}</span>` : ""}
         ${oldPriceDate(o.price) ? `<span class="change old">${esc(T.oldShort(oldPriceDate(o.price)))}</span>` : ""}
         ${totalText(o, true) ? `<span class="change old">${esc(totalText(o, true))}</span>` : ""}
       </summary>
       <div class="detail">
-        <p>${esc([street, city].filter(Boolean).join(", "))}</p>
         <p>${esc(facts(o).slice(1).join(", "))}</p>
         ${fees ? `<p>${esc(fees)}</p>` : ""}
         ${trendText(o) ? `<p>${esc(trendText(o))}</p>` : ""}
@@ -401,11 +402,17 @@ function syncFilterControls() {
   $("f-connector").value = f.connector;
   $("f-tariff").value = f.tariff || "adhoc";
   $("f-charge").value = String(f.charge || 0);
-  $("f-charge").classList.toggle("set", (f.charge || 0) > 0);
+  $("f-charge").classList.toggle("set", Boolean(f.charge));
+  $("f-radius").classList.toggle("set", f.radius !== 10);
   $("f-power").classList.toggle("set", f.power > 0);
   $("f-operator").classList.toggle("set", Boolean(f.operator));
   $("f-connector").classList.toggle("set", f.connector !== "any");
   $("f-tariff").classList.toggle("set", (f.tariff || "adhoc") !== "adhoc");
+  // Der Knopf zeigt, wie viele Filter vom Standard abweichen.
+  const active = document.querySelectorAll("#filters select.set").length;
+  const toggle = $("filters-toggle");
+  toggle.textContent = active ? T.filtersActive(active) : T.filters;
+  toggle.classList.toggle("set", active > 0);
 }
 
 let renderToken = 0;
@@ -437,14 +444,18 @@ async function render() {
   if (token !== renderToken) return;
   const now = Date.now();
   state.quarter = Math.floor(now / 900000);
+  const near = f.charge === "near";
   const filters = {
     minPowerKw: f.power,
     connector: f.connector,
     operators: f.operator ? [f.operator] : [],
     tariff: f.tariff || "adhoc",
-    chargeKwh: f.charge || 0,
+    chargeKwh: near ? 0 : f.charge || 0,
   };
-  const { offers, outlook, count } = evaluate(loaded.stations, place.lat, place.lon, f.radius, filters, now, SHOWN + 1);
+  const found = evaluate(loaded.stations, place.lat, place.lon, f.radius, filters, now, near ? Infinity : SHOWN + 1);
+  const { outlook, count } = found;
+  // „Nach Entfernung“: dieselben Angebote, die nächste Station zuerst
+  const offers = near ? [...found.offers].sort((a, b) => a.distanceKm - b.distanceKm) : found.offers;
   renderPlaceTools();
   updateOperatorOptions(loaded.stations);
   if (loaded.failed) note(T.partial, "error");
@@ -466,8 +477,9 @@ async function render() {
     adhoc = plain.offers.find((o) => o.stationId === offers[0].stationId) || null;
   }
   state.check = adhoc ? { adhoc: adhoc.price.kwh, tariff: offers[0].price.kwh } : null;
-  $("winner").innerHTML = renderWinner(offers[0]) + renderTariffCheck(offers[0], adhoc);
-  $("later").innerHTML = renderLater(outlook, offers[0]);
+  $("winner").innerHTML = renderWinner(offers[0], near) + renderTariffCheck(offers[0], adhoc);
+  // „Später günstiger“ misst sich am günstigsten Angebot, nicht am nächsten
+  $("later").innerHTML = renderLater(outlook, found.offers[0]);
   $("more").innerHTML = renderList(offers.slice(1, SHOWN + 1));
   $("summary").textContent =
     T.summary(whole.format(offers.reduce((sum, o) => sum + o.merged, 0)), whole.format(count), f.radius);
@@ -639,7 +651,7 @@ export function shareUrl(base, place, filters) {
   if (filters.operator) q.set("netz", filters.operator);
   if (filters.connector !== "any") q.set("stecker", filters.connector);
   if ((filters.tariff || "adhoc") !== "adhoc") q.set("tarif", filters.tariff);
-  if (filters.charge > 0) q.set("kwh", String(filters.charge));
+  if (filters.charge > 0 || filters.charge === "near") q.set("kwh", String(filters.charge));
   return url.toString();
 }
 
@@ -658,7 +670,7 @@ export function parseShared(search) {
       operator: (q.get("netz") || "").slice(0, 80),
       connector: pick("stecker", ["any", "ccs", "type2", "chademo"], "any"),
       tariff: pick("tarif", ["adhoc", "contract", "subscription"], "adhoc"),
-      charge: Number(pick("kwh", ["0", "20", "40", "60", "80"], "0")),
+      charge: q.get("kwh") === "near" ? "near" : Number(pick("kwh", ["0", "20", "40", "60", "80"], "0")),
     },
   };
 }
@@ -830,7 +842,12 @@ function setupFilters() {
   bind("f-operator", "operator", String);
   bind("f-connector", "connector", String);
   bind("f-tariff", "tariff", String);
-  bind("f-charge", "charge", Number);
+  bind("f-charge", "charge", (value) => (value === "near" ? "near" : Number(value)));
+  $("filters-toggle").addEventListener("click", () => {
+    const box = $("filters");
+    box.hidden = !box.hidden;
+    $("filters-toggle").setAttribute("aria-expanded", String(!box.hidden));
+  });
   $("winner").addEventListener("input", (event) => {
     if (event.target.id !== "monthly-fee" || !state.check) return;
     const fee = Number(event.target.value.replace(",", ".")) || 0;

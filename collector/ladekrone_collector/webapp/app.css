@@ -153,3 +153,15 @@ h1{font:750 clamp(2rem,8.5vw,2.9rem)/1.05 "Bricolage",sans-serif;letter-spacing:
 .map-popup{color:#2B1B3D;font:400 .95rem/1.4 "Atkinson",system-ui,sans-serif}
 .map-popup p{margin:.2rem 0}
 .map-popup a{color:#2B1B3D;font-weight:700}
+
+/* Filter einklappbar, Listenzeilen mit Adresse und Pfeil */
+.filters[hidden]{display:none}
+.chip.set{border-color:var(--link);background-color:var(--wash);font-weight:700}
+.place-row{margin-bottom:.9rem}
+.list details > summary{position:relative;padding-right:1.5rem;cursor:pointer}
+.list details > summary::after{content:"";position:absolute;right:.25rem;top:1.25rem;width:.5rem;height:.5rem;
+  border-right:2px solid var(--muted);border-bottom:2px solid var(--muted);transform:rotate(45deg);transition:transform .15s}
+.list details[open] > summary::after{transform:rotate(-135deg);top:1.45rem}
+.list .sub.where{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.list .p{grid-row:1 / span 3}
+@media (prefers-reduced-motion:reduce){.list details > summary::after{transition:none}}

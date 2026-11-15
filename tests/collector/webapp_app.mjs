@@ -49,6 +49,8 @@ process.stdout.write(JSON.stringify({
   plain,
   back: parseShared(new URL(url).search),
   defaults: parseShared(new URL(plain).search),
+  near: shareUrl(base, place, { ...filters, charge: "near" }),
+  nearBack: parseShared("?lat=51&lon=6&kwh=near").filters.charge,
   none: parseShared("?foo=1"),
   bad: [parseShared("?lat=abc&lon=6"), parseShared("?lat=95&lon=6"), parseShared("?lat=51&lon=600")],
   hostile: parseShared("?lat=51&lon=6&r=999&kw=7&stecker=%3Cscript%3E&tarif=x&kwh=-1&ort=" + "A".repeat(500)),
