@@ -943,6 +943,7 @@ function setupLanguage() {
     }
   }
   const button = $("lang");
+  if (!button) return; // ältere Seite aus dem Cache: ohne Sprachwechsel weiterlaufen
   button.textContent = T.otherLang;
   button.lang = lang === "de" ? "en" : "de";
   button.addEventListener("click", () => {

@@ -3,12 +3,14 @@ const VERSION = "__VERSION__";
 const SHELL = `ladekrone-app-${VERSION}`;
 const DATA = "ladekrone-data";
 const MAX_DATA_ENTRIES = 120;
+// Stil und Skripte tragen die Version in der Adresse. So kann nie eine neue Datei
+// auf eine alte aus dem Cache treffen, etwa ein neues app.js auf ein altes pricing.js.
 const SHELL_FILES = [
   "./",
-  "app.css",
-  "app.js",
-  "pricing.js",
-  "i18n.js",
+  `app.css?v=${VERSION}`,
+  `app.js?v=${VERSION}`,
+  `pricing.js?v=${VERSION}`,
+  `i18n.js?v=${VERSION}`,
   "manifest.webmanifest",
   "datenschutz.html",
   "privacy.html",
@@ -21,7 +23,9 @@ const SHELL_FILES = [
 ];
 
 self.addEventListener("install", (event) => {
-  event.waitUntil(caches.open(SHELL).then((cache) => cache.addAll(SHELL_FILES)).then(() => self.skipWaiting()));
+  // cache: "reload" umgeht den HTTP-Cache, damit wirklich die Dateien dieser Version im Cache landen.
+  const files = SHELL_FILES.map((url) => new Request(url, { cache: "reload" }));
+  event.waitUntil(caches.open(SHELL).then((cache) => cache.addAll(files)).then(() => self.skipWaiting()));
 });
 
 self.addEventListener("activate", (event) => {
@@ -64,17 +68,19 @@ async function networkFirst(request) {
   }
 }
 
-// App-Dateien: aus dem Cache, im Hintergrund aktualisieren.
-async function staleWhileRevalidate(request) {
+// App-Dateien: genau diese Adresse aus dem Cache, sonst aus dem Netz. Eine Datei mit
+// anderer Version (?v=…) gilt nur als Notbehelf, wenn das Netz fehlt.
+async function cacheFirst(request) {
   const cache = await caches.open(SHELL);
-  const cached = await cache.match(request, { ignoreSearch: true });
-  const update = fetch(request)
-    .then((response) => {
-      if (response.ok) cache.put(request, response.clone());
-      return response;
-    })
-    .catch(() => null);
-  return cached || (await update) || Response.error();
+  const cached = await cache.match(request);
+  if (cached) return cached;
+  try {
+    const response = await fetch(request);
+    if (response.ok) cache.put(request, response.clone());
+    return response;
+  } catch {
+    return (await cache.match(request, { ignoreSearch: true })) || Response.error();
+  }
 }
 
 self.addEventListener("fetch", (event) => {
@@ -87,6 +93,6 @@ self.addEventListener("fetch", (event) => {
   } else if (request.mode === "navigate") {
     event.respondWith(fetch(request).catch(() => caches.match("./", { ignoreSearch: true }).then((r) => r || Response.error())));
   } else {
-    event.respondWith(staleWhileRevalidate(request));
+    event.respondWith(cacheFirst(request));
   }
 });

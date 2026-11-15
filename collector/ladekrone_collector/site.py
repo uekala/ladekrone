@@ -364,6 +364,13 @@ def copy_assets(out_dir: Path) -> None:
     )
 
 
+# Datei → Verweise darin (mit schließendem Anführungszeichen), die die Version bekommen
+WEBAPP_VERSIONED = {
+    "index.html": ('href="app.css"', 'src="app.js"'),
+    "app.js": ('"./pricing.js"', '"./i18n.js"'),
+}
+
+
 def copy_webapp(out_dir: Path) -> str:
     """Web-App nach ``app/`` kopieren; der Service Worker bekommt eine Version aus
     dem Inhalt, damit Handys eine neue App-Version zuverlässig übernehmen."""
@@ -380,4 +387,16 @@ def copy_webapp(out_dir: Path) -> str:
         worker.write_text(
             worker.read_text(encoding="utf-8").replace("__VERSION__", version), encoding="utf-8"
         )
+    # Stil und Skripte mit der Version in der Adresse laden: Browser und Service Worker
+    # können dann nie Dateien verschiedener Stände mischen.
+    for name, references in WEBAPP_VERSIONED.items():
+        path = target / name
+        if not path.exists():
+            continue
+        text = path.read_text(encoding="utf-8")
+        for reference in references:
+            if reference not in text:
+                raise ValueError(f"{name}: Verweis {reference!r} fehlt")
+            text = text.replace(reference, f"{reference[:-1]}?v={version}{reference[-1]}")
+        path.write_text(text, encoding="utf-8")
     return version

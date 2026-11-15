@@ -7,6 +7,7 @@
 - **Preise auf einen Blick.** In der Web-App zeigt ein Zeichen vor jedem Preis, ob er im Vergleich zum Umkreis günstig, mittel oder teuer ist (je ein Drittel der Spanne). Form und Legende sagen dasselbe wie die Farbe.
 - **Karte in Home Assistant.** Jede Zeile der Liste zeigt jetzt Entfernung, Leistung und Stromart und darunter Straße und Ort; ein Pfeil zeigt, dass sie sich aufklappen lässt.
 - Web-App: Gemerkte Orte stehen auf der Startseite als große Knöpfe mit Überschrift.
+- Web-App: Nach einer Aktualisierung können sich alte und neue Dateien der App nicht mehr mischen. Skripte und Stil werden mit ihrer Version geladen, und der Speicher für die Offline-Nutzung hält je Version einen vollständigen Satz.
 - **Web-App auf Englisch.** Die Web-App richtet sich nach der Sprache des Browsers: Deutsch für deutsche Einstellungen, sonst Englisch. Unten auf der Seite lässt sich die Sprache wechseln; die Wahl bleibt auf dem Gerät gespeichert. Die Datenschutzseite gibt es ebenfalls auf Englisch.
 - **Karte in der Web-App.** „Karte“ zeigt die Stationen mit ihren Preisen auf einer Karte, der günstigste Preis ist hervorgehoben; ein Tipp auf einen Preis öffnet Ladenetz, Leistung und „Route starten“. Die Karte lädt erst auf Wunsch. Die Kartendaten kommen vom kostenlosen Dienst OpenFreeMap (ohne Konto, ohne Cookies); ohne die Karte geht weiterhin nichts an fremde Dienste.
 

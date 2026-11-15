@@ -7,6 +7,7 @@ from argparse import Namespace
 from pathlib import Path
 
 from ladekrone_collector.build import run
+from ladekrone_collector.site import copy_webapp
 
 FIXTURE = Path(__file__).parent.parent / "fixtures" / "afir_static_sample.json"
 
@@ -251,3 +252,22 @@ def test_annotations_cannot_inject_workflow_commands(monkeypatch, capsys) -> Non
     assert lines == [
         "::error title=Quelle fehlgeschlagen::x: HTTP 500%0A::warning::injiziert 100%25"
     ]
+
+
+def test_webapp_files_carry_the_version(tmp_path: Path) -> None:
+    """Skripte und Stil werden mit der Version geladen, damit sich Stände nie mischen."""
+    version = copy_webapp(tmp_path)
+    app = tmp_path / "app"
+    html = (app / "index.html").read_text(encoding="utf-8")
+    assert f'href="app.css?v={version}"' in html
+    assert f'src="app.js?v={version}"' in html
+    script = (app / "app.js").read_text(encoding="utf-8")
+    assert f'"./pricing.js?v={version}"' in script
+    assert f'"./i18n.js?v={version}"' in script
+    assert '"./pricing.js"' not in script
+    worker = (app / "sw.js").read_text(encoding="utf-8")
+    assert f'const VERSION = "{version}"' in worker
+    for name in ("app.css", "app.js", "pricing.js", "i18n.js"):
+        assert f"`{name}?v=${{VERSION}}`" in worker
+    # jede Änderung an einer Datei ergibt eine neue Version
+    assert len(version) == 12

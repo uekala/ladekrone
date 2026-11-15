@@ -65,7 +65,7 @@ def test_privacy_page_exists_in_both_languages() -> None:
     assert german.count("<h2>") == english.count("<h2>")
     worker = (WEBAPP / "sw.js").read_text(encoding="utf-8")
     for name in ("i18n.js", "privacy.html"):
-        assert f'"{name}"' in worker
+        assert name in worker
 
 
 def test_map_loads_only_on_request() -> None:
