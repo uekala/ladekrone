@@ -335,7 +335,24 @@ function renderLater(outlook, current) {
   </aside>`;
 }
 
-function renderList(offers) {
+const levelDot = (name) =>
+  name ? `<span class="level ${name}" role="img" aria-label="${esc(T.levels[name])}" title="${esc(T.levels[name])}"></span>` : "";
+
+/**
+ * Ordnet Preise im Umkreis in günstig, mittel und teuer: je ein Drittel der Spanne
+ * zwischen günstigstem und teuerstem Angebot. Bei weniger als 5 ct Spanne oder
+ * weniger als drei Angeboten gibt es keine Einordnung.
+ */
+export function priceLevels(prices) {
+  const known = prices.filter((p) => Number.isFinite(p));
+  const low = Math.min(...known);
+  const high = Math.max(...known);
+  if (known.length < 3 || high - low < 0.05 - 1e-9) return () => null;
+  const step = (high - low) / 3;
+  return (price) => (price <= low + step + 1e-9 ? "low" : price >= high - step - 1e-9 ? "high" : "mid");
+}
+
+function renderList(offers, level = () => null) {
   if (!offers.length) return "";
   const rows = offers.map((o) => {
     const { street, city } = splitAddress(o.address);
@@ -347,9 +364,9 @@ function renderList(offers) {
     return `<li><details>
       <summary>
         <span class="op">${esc(o.operator || T.unknownNetwork)}</span>
-        <span class="p">${euro.format(o.price.kwh)}<small>€/kWh</small></span>
+        <span class="p">${levelDot(level(o.price.kwh))}${euro.format(o.price.kwh)}<small>€/kWh</small></span>
         <span class="sub">${esc(head)}</span>
-        ${where ? `<span class="sub where">${esc(where)}</span>` : ""}
+        ${where ? `<span class="sub addr">${esc(where)}</span>` : ""}
         ${o.until ? `<span class="change">${esc(untilText(o))}</span>` : ""}
         ${oldPriceDate(o.price) ? `<span class="change old">${esc(T.oldShort(oldPriceDate(o.price)))}</span>` : ""}
         ${totalText(o, true) ? `<span class="change old">${esc(totalText(o, true))}</span>` : ""}
@@ -480,7 +497,11 @@ async function render() {
   $("winner").innerHTML = renderWinner(offers[0], near) + renderTariffCheck(offers[0], adhoc);
   // „Später günstiger“ misst sich am günstigsten Angebot, nicht am nächsten
   $("later").innerHTML = renderLater(outlook, found.offers[0]);
-  $("more").innerHTML = renderList(offers.slice(1, SHOWN + 1));
+  const level = priceLevels(found.offers.map((o) => o.price.kwh));
+  const legend = level(found.offers[0].price.kwh)
+    ? `<p class="legend">${["low", "mid", "high"].map((name) => `${levelDot(name)}${esc(T.levels[name])}`).join(" ")} ${esc(T.levelsNote)}</p>`
+    : "";
+  $("more").innerHTML = renderList(offers.slice(1, SHOWN + 1), level).replace("</h3>", `</h3>${legend}`);
   $("summary").textContent =
     T.summary(whole.format(offers.reduce((sum, o) => sum + o.merged, 0)), whole.format(count), f.radius);
 }
@@ -618,6 +639,7 @@ function renderFavorites() {
   const list = favorites();
   const box = $("favorites");
   box.hidden = !list.length;
+  $("favorites-title").hidden = !list.length;
   box.innerHTML = list
     .map((p, i) => `<button class="chip" type="button" data-favorite="${i}">${esc(p.label)}</button>`)
     .join("");

@@ -2,7 +2,7 @@
 import { pathToFileURL } from "node:url";
 
 const appUrl = pathToFileURL(process.argv[2]);
-const { shareUrl, parseShared, breakEvenKwh, loadTiles } = await import(appUrl.href);
+const { shareUrl, parseShared, breakEvenKwh, loadTiles, priceLevels } = await import(appUrl.href);
 const { tilesForRadius } = await import(new URL("./pricing.js", appUrl).href);
 const base = "https://example.org/ladekrone/app/?alt=1#x";
 const place = { lat: 51.33456789, lon: 6.56712345, label: "Krefeld & Umgebung", gps: false };
@@ -51,6 +51,11 @@ process.stdout.write(JSON.stringify({
   defaults: parseShared(new URL(plain).search),
   near: shareUrl(base, place, { ...filters, charge: "near" }),
   nearBack: parseShared("?lat=51&lon=6&kwh=near").filters.charge,
+  levels: (() => {
+    const level = priceLevels([0.39, 0.45, 0.49, 0.59, 0.69, 0.79]);
+    return [0.39, 0.52, 0.53, 0.65, 0.66, 0.79].map(level);
+  })(),
+  flat: [priceLevels([0.5, 0.52, 0.54])(0.5), priceLevels([0.4, 0.8])(0.4), priceLevels([])(0.4)],
   none: parseShared("?foo=1"),
   bad: [parseShared("?lat=abc&lon=6"), parseShared("?lat=95&lon=6"), parseShared("?lat=51&lon=600")],
   hostile: parseShared("?lat=51&lon=6&r=999&kw=7&stecker=%3Cscript%3E&tarif=x&kwh=-1&ort=" + "A".repeat(500)),

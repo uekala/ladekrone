@@ -101,3 +101,10 @@ def test_new_data_arrives_without_reload(result: dict) -> None:
 def test_sorting_by_distance_survives_sharing(result: dict) -> None:
     assert parse_qs(urlsplit(result["near"]).query)["kwh"] == ["near"]
     assert result["nearBack"] == "near"
+
+
+def test_price_levels_split_the_range_in_thirds(result: dict) -> None:
+    # Spanne 0,39 bis 0,79: günstig bis 0,523, teuer ab 0,657
+    assert result["levels"] == ["low", "low", "mid", "mid", "high", "high"]
+    # zu kleine Spanne, zu wenige Angebote oder keine: keine Einordnung
+    assert result["flat"] == [None, None, None]
