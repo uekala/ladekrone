@@ -30,6 +30,7 @@ def test_card_files_are_shipped() -> None:
     assert "whenDefined(host.localName)" in script
     assert "fonts/bricolage.woff2" in script
     # Optionen des visuellen Editors
+    assert 'class="sub place"' in script  # Straße und Ort in jeder Zeile
     for option in ("show_list", "max_stations", "compact"):
         assert f'name: "{option}"' in script
 

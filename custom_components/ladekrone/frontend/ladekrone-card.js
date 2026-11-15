@@ -167,6 +167,11 @@ summary::-webkit-details-marker{display:none}
 .change{grid-column:1 / -1;font-size:.9rem;color:var(--later-ink)}
 .change.old{color:var(--ink);font-weight:700}
 .change.total{color:var(--ink)}
+summary{position:relative;padding-right:1.5rem}
+summary::after{content:"";position:absolute;right:.3rem;top:1.15rem;width:.5rem;height:.5rem;border-right:2px solid var(--muted);border-bottom:2px solid var(--muted);transform:rotate(45deg)}
+details[open]>summary::after{transform:rotate(-135deg);top:1.35rem}
+.sub.place{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.p{grid-row:1 / span 3}
 .trend{margin:-.2rem 0 .6rem;color:var(--ink);font-size:.9rem;line-height:1.4}
 .total{margin:-.2rem 0 .5rem;color:var(--ink);font-size:1rem;font-weight:700}
 .winner.compact .actions{margin-top:.6rem}
@@ -417,8 +422,9 @@ class LadekroneCard extends HTMLElement {
       if (rest.length) {
         const rows = rest.map((o) => {
           const addr = splitAddress(o.address);
-          const head = [isTesla(o) ? addr.street : addr.city || addr.street, `${f.one(o.distance_km ?? 0)} km`, o.power_kw ? `${f.whole(Math.round(o.power_kw))} kW` : ""]
-            .filter(Boolean).join(", ");
+          const head = [`${f.one(o.distance_km ?? 0)} km`, o.power_kw ? `${f.whole(Math.round(o.power_kw))} kW` : "", (o.current_type || "").toUpperCase()]
+            .filter(Boolean).join(" · ");
+          const where = [addr.street, addr.city].filter(Boolean).join(", ");
           const rowUntil = this._until(o, f, t);
           const rowFees = this._fees(o, f, t);
           const rowOld = this._old(o, f);
@@ -428,13 +434,13 @@ class LadekroneCard extends HTMLElement {
               <span class="op">${esc(this._name(o, t))}</span>
               <span class="p">${f.euro(o.price)}<small>€/kWh</small></span>
               <span class="sub">${esc(head)}</span>
+              ${where ? `<span class="sub place">${esc(where)}</span>` : ""}
               ${rowUntil ? `<span class="change">${esc(rowUntil)}</span>` : ""}
               ${o.tariff && o.tariff !== "adHoc" ? `<span class="change">${esc(this._note(o, t))}</span>` : ""}
               ${rowOld ? `<span class="change old">${esc(t.oldShort(rowOld))}</span>` : ""}
               ${this._total(o, f, t, true) ? `<span class="change total">${esc(this._total(o, f, t, true))}</span>` : ""}
             </summary>
             <div class="detail">
-              <p>${esc([addr.street, addr.city].filter(Boolean).join(", "))}</p>
               <p>${esc(this._facts(o, f, t).slice(1).join(", "))}</p>
               ${rowFees ? `<p>${esc(rowFees)}</p>` : ""}
               <a class="btn" href="${esc(this._route(o))}" target="_blank" rel="noopener">${esc(t.route)}</a>
