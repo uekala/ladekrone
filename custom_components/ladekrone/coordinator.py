@@ -368,11 +368,22 @@ class LadekroneCoordinator(DataUpdateCoordinator[LadekroneData]):
                 tiles[key] = list(payload.get("stations") or [])
         self._meta = meta
         self._tiles = tiles
+        # ETags verworfener Kacheln vergessen, sonst käme bei der Rückkehr ein 304
+        # für Inhalte, die nicht mehr im Speicher liegen.
+        self._etags = {k: v for k, v in self._etags.items() if k == "meta" or k in tiles}
+
+    def _has_cached(self, cache_key: str) -> bool:
+        """Liegt der Inhalt zu diesem Schlüssel noch im Speicher?"""
+        return self._meta is not None if cache_key == "meta" else cache_key in self._tiles
 
     async def _async_get_json(self, url: str, cache_key: str) -> dict[str, Any] | None:
-        """Lädt JSON; None bedeutet 'unverändert' (304) bzw. Kachel fehlt (404)."""
+        """Lädt JSON; None bedeutet 'unverändert' (304), eine fehlende Kachel (404) ist leer.
+
+        If-None-Match geht nur mit, solange der Inhalt noch im Speicher liegt; nur dann
+        darf ein 304 'nimm den vorhandenen Stand' heißen.
+        """
         headers = {}
-        if etag := self._etags.get(cache_key):
+        if self._has_cached(cache_key) and (etag := self._etags.get(cache_key)):
             headers["If-None-Match"] = etag
         async with asyncio.timeout(REQUEST_TIMEOUT):
             async with self._session.get(url, headers=headers) as response:

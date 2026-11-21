@@ -1,5 +1,9 @@
 # Änderungen
 
+## 0.9.3
+
+- **Keine leere Anzeige mehr nach einer Fahrt.** Folgt die Suche einem Auto oder einer Person, behält der stündliche Abruf nur die Kacheln rund um den aktuellen Standort. Kam das Auto danach in ein früheres Gebiet zurück, fragte Ladekrone dessen Kacheln mit dem alten ETag an; der Server antwortete „unverändert“, und die Kacheln blieben leer – keine Stationen, kein Preis, bis neue Daten erschienen oder die Integration neu geladen wurde. Jetzt fragt Ladekrone nur dann „unverändert?“, wenn der Inhalt noch im Speicher liegt, und vergisst die ETags verworfener Kacheln. Die Web-App war nicht betroffen.
+
 ## 0.9.2
 
 - **Aktuellere Preise.** Der Datensammler läuft jetzt stündlich statt alle 6 Stunden, und Home Assistant sieht stündlich nach neuen Daten statt alle 6 Stunden. Ohne neue Daten kostet das nur eine kurze Anfrage.

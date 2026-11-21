@@ -10,7 +10,10 @@ from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import HomeAssistant
 from homeassistant.util import dt as dt_util
 from pytest_homeassistant_custom_component.common import MockConfigEntry, async_fire_time_changed
-from pytest_homeassistant_custom_component.test_util.aiohttp import AiohttpClientMocker
+from pytest_homeassistant_custom_component.test_util.aiohttp import (
+    AiohttpClientMocker,
+    AiohttpClientMockResponse,
+)
 
 from custom_components.ladekrone.const import DOMAIN
 
@@ -205,6 +208,65 @@ async def test_search_follows_location_entity(
     await hass.async_block_till_done()
     count = hass.states.get("sensor.ladekrone_charging_stations_in_area")
     assert count.attributes["center_source"] == "fixed"
+
+
+async def test_tiles_reload_after_trip_away_and_back(
+    hass: HomeAssistant,
+    aioclient_mock: AiohttpClientMocker,
+    freezer: FrozenDateTimeFactory,
+    published_data,
+) -> None:
+    """Zurück im alten Gebiet dürfen die Kacheln nicht leer bleiben.
+
+    Der Server antwortet wie GitHub Pages mit ETag und auf If-None-Match mit 304.
+    Fährt das Auto weg, verwirft der stündliche Abruf die Kacheln von zu Hause.
+    Kommt es zurück, muss Ladekrone sie vollständig neu laden; ein 304 darauf
+    hätte sie bisher als leere Kacheln gespeichert.
+    """
+    freezer.move_to(datetime(2026, 10, 27, 11, 0, tzinfo=UTC))
+    meta, tiles = published_data
+
+    def _conditional(payload: dict, etag: str):
+        async def _respond(method, url, data):
+            sent = aioclient_mock.mock_calls[-1][3] or {}
+            if sent.get("If-None-Match") == etag:
+                return AiohttpClientMockResponse(method, url, status=304)
+            return AiohttpClientMockResponse(method, url, json=payload, headers={"ETag": etag})
+
+        return _respond
+
+    aioclient_mock.get(f"{DATA_URL}/meta.json", side_effect=_conditional(meta, '"meta-1"'))
+    for key, tile in tiles.items():
+        aioclient_mock.get(
+            f"{DATA_URL}/tiles/{key}.json", side_effect=_conditional(tile, f'"{key}-1"')
+        )
+
+    frankfurt = {"latitude": 50.1101, "longitude": 8.6801}
+    hass.states.async_set("device_tracker.auto", "not_home", frankfurt)
+    entry = _entry(hass, location_entity="device_tracker.auto")
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    assert float(hass.states.get("sensor.ladekrone_cheapest_price").state) == 0.49
+
+    # Ausflug nach Berlin; dort läuft der stündliche Abruf und behält nur Berlins Kacheln
+    hass.states.async_set(
+        "device_tracker.auto", "not_home", {"latitude": 52.52, "longitude": 13.405}
+    )
+    freezer.tick(timedelta(seconds=15))
+    async_fire_time_changed(hass)
+    await hass.async_block_till_done()
+    freezer.tick(timedelta(hours=2))
+    async_fire_time_changed(hass)
+    await hass.async_block_till_done(wait_background_tasks=True)
+    assert hass.states.get("sensor.ladekrone_cheapest_price").state == "unknown"
+
+    # Zurück in Frankfurt: Stationen und Preise sind wieder da
+    hass.states.async_set("device_tracker.auto", "not_home", frankfurt)
+    freezer.tick(timedelta(seconds=15))
+    async_fire_time_changed(hass)
+    await hass.async_block_till_done(wait_background_tasks=True)
+    assert float(hass.states.get("sensor.ladekrone_cheapest_price").state) == 0.49
+    assert hass.states.get("sensor.ladekrone_charging_stations_in_area").state == "4"
 
 
 async def test_operators_follow_entity_and_survive_restart(
