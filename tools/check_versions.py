@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check that the Home Assistant manifest, changelog and release tag agree."""
+"""Prüft, ob Manifest, Changelog und Release-Tag dieselbe Version nennen."""
 
 from __future__ import annotations
 

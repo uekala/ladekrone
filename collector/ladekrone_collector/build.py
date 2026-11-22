@@ -219,7 +219,7 @@ def summarize(total: int, diagnostics: dict[str, dict[str, Any]]) -> dict[str, A
 
 
 def _escape_annotation(value: object) -> str:
-    """Escapes text for a GitHub Actions workflow command.
+    """Maskiert Text für einen Workflow-Befehl von GitHub Actions.
 
     Error texts can come from the Mobilithek server. Without escaping, a line
     break in them would start a second workflow command.
