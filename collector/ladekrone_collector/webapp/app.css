@@ -61,6 +61,7 @@ h1{font:750 clamp(2rem,8.5vw,2.9rem)/1.05 "Bricolage",sans-serif;letter-spacing:
 
 .note{margin:1rem 0 0;padding:.8rem 1rem;border-radius:1rem;background:var(--wash)}
 .note.error{color:var(--danger)}
+.note-retry{margin-left:.4rem;padding:.35rem .8rem;border:1px solid currentColor;border-radius:999px;background:transparent;color:inherit;font:inherit;font-weight:600;cursor:pointer;min-height:44px}
 
 .has-place .start{display:none}
 .place{font:700 1.45rem/1.2 "Bricolage",sans-serif;letter-spacing:-.015em;margin:1.4rem 0 .7rem}
