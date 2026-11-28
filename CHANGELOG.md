@@ -1,5 +1,9 @@
 # Änderungen
 
+## Unveröffentlicht
+
+- Web-App: Schlägt das Laden der Preise fehl, steht neben dem Hinweis ein Knopf „Erneut versuchen“ – kein Neuladen der Seite mehr nötig. Das gilt für die Preise am Ort und für die Grunddaten beim Start.
+
 ## 0.9.3
 
 - **Keine leere Anzeige mehr nach einer Fahrt.** Folgt die Suche einem Auto oder einer Person, behält der stündliche Abruf nur die Kacheln rund um den aktuellen Standort. Kam das Auto danach in ein früheres Gebiet zurück, fragte Ladekrone dessen Kacheln mit dem alten ETag an; der Server antwortete „unverändert“, und die Kacheln blieben leer – keine Stationen, kein Preis, bis neue Daten erschienen oder die Integration neu geladen wurde. Jetzt fragt Ladekrone nur dann „unverändert?“, wenn der Inhalt noch im Speicher liegt, und vergisst die ETags verworfener Kacheln. Die Web-App war nicht betroffen.

@@ -122,11 +122,20 @@ function untilText(offer) {
   return T.untilNext(when(offer.until), euro.format(offer.nextPrice));
 }
 
-function note(text, kind = "") {
+function note(text, kind = "", retry = null) {
   const el = $("note");
   el.textContent = text;
   el.className = `note ${kind}`;
   el.hidden = !text;
+  // Bei einem Ladefehler gleich hier neu versuchen, statt die Seite neu laden zu müssen.
+  if (retry) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "note-retry";
+    button.textContent = T.retry;
+    button.addEventListener("click", () => { note(""); retry(); });
+    el.append(" ", button);
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -455,7 +464,7 @@ async function render() {
     $("later").innerHTML = "";
     $("more").innerHTML = "";
     $("summary").textContent = "";
-    note(T.loadError, "error");
+    note(T.loadError, "error", render);
     return;
   }
   if (token !== renderToken) return;
@@ -960,7 +969,8 @@ async function start() {
   setupPlaceTools();
   setupMap();
   $("locate").addEventListener("click", locate);
-  loadMeta().catch(() => note(T.loadErrorShort, "error"));
+  const meta = () => loadMeta().catch(() => note(T.loadErrorShort, "error", meta));
+  meta();
 
   const saved = store.get("place", null);
   let granted = false;
