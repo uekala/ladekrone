@@ -51,7 +51,8 @@ h1{font:750 clamp(2rem,8.5vw,2.9rem)/1.05 "Bricolage",sans-serif;letter-spacing:
 .search input{width:100%;min-height:3rem;padding:.65rem 1.1rem;border-radius:999px;
   border:2px solid var(--line);background:var(--field);color:var(--ink);font:inherit}
 .search input::placeholder{color:var(--muted);opacity:1}
-.search input:focus{outline:none;border-color:var(--link)}
+.search input:focus{border-color:var(--link)}
+.search input:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
 #suggestions{position:absolute;z-index:5;left:0;right:0;top:calc(100% + .4rem);margin:0;padding:.35rem;
   list-style:none;background:var(--paper);border:1.5px solid var(--line);border-radius:1.1rem;
   box-shadow:0 12px 30px -12px rgb(43 27 61 / .35)}

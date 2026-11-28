@@ -2,6 +2,7 @@
 
 ## Unveröffentlicht
 
+- Web-App: Das Suchfeld zeigt beim Tastaturfokus den üblichen Fokusring statt nur einer anderen Rahmenfarbe.
 - Web-App: Schlägt das Laden der Preise fehl, steht neben dem Hinweis ein Knopf „Erneut versuchen“ – kein Neuladen der Seite mehr nötig. Das gilt für die Preise am Ort und für die Grunddaten beim Start.
 
 ## 0.9.3
