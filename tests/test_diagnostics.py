@@ -162,3 +162,37 @@ async def test_failed_refetch_is_visible_while_old_data_is_used(
     assert fetch["last_fetch_error"].startswith("ClientResponseError")
     assert diagnostics["last_update_success"] is True
     assert diagnostics["offers"] > 0
+
+
+async def test_failed_tile_error_hides_tile_keys(
+    hass: HomeAssistant,
+    aioclient_mock: AiohttpClientMocker,
+    freezer: FrozenDateTimeFactory,
+    published_data,
+) -> None:
+    """Die Adresse einer fehlgeschlagenen Kachel steht ohne Kachel-Schlüssel in der Diagnose."""
+    freezer.move_to(datetime(2026, 10, 27, 11, 0, tzinfo=UTC))
+    _mock_data(aioclient_mock, published_data)
+    entry = _entry(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    meta, tiles = published_data
+    aioclient_mock.clear_requests()
+    aioclient_mock.get(f"{DATA_URL}/meta.json", json=meta)
+    # Eine kaputte Kachel: Die Fehlermeldung nennt ihre Adresse samt Schlüssel.
+    for key in tiles:
+        aioclient_mock.get(f"{DATA_URL}/tiles/{key}.json", json=["kaputt"])
+    aioclient_mock.get(f"{DATA_URL}/diag.json", json=COLLECTOR_DIAG)
+    freezer.tick(timedelta(hours=1, minutes=1))
+    async_fire_time_changed(hass, dt_util.utcnow())
+    await hass.async_block_till_done(wait_background_tasks=True)
+
+    diagnostics = await async_get_config_entry_diagnostics(hass, entry)
+
+    error = diagnostics["fetch"]["last_fetch_error"]
+    assert error.startswith("ValueError")
+    assert f"{DATA_URL}/tiles/***.json" in error
+    dump = json.dumps(diagnostics, default=str)
+    for key in tiles_for_radius(50.1101, 8.6801, 10, 0.25):
+        assert key not in dump

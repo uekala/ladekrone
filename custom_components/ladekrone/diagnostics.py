@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import re
 from typing import Any
 
 import aiohttp
@@ -17,6 +18,13 @@ from .const import CONF_LOCATION, DOMAIN
 
 TO_REDACT = {CONF_LOCATION, "latitude", "longitude", "address"}
 DIAG_TIMEOUT = 10
+# Kachel-Schlüssel in Adressen von Fehlermeldungen verraten die Gegend des Suchgebiets.
+_TILE_IN_URL = re.compile(r"(tiles/)[^/\s'\"?#]+?(\.json)")
+
+
+def _without_tiles(text: str | None) -> str | None:
+    """Fehlertext ohne Kachel-Schlüssel, z. B. aus der Adresse einer fehlgeschlagenen Kachel."""
+    return _TILE_IN_URL.sub(r"\1***\2", text) if text else text
 
 
 async def async_get_config_entry_diagnostics(
@@ -27,6 +35,9 @@ async def async_get_config_entry_diagnostics(
     settings = coordinator.settings
     integration = await async_get_integration(hass, DOMAIN)
     generated = data.generated if data else None
+    fetch = coordinator.diagnostics()
+    fetch["last_fetch_error"] = _without_tiles(fetch.get("last_fetch_error"))
+    last_exception = repr(coordinator.last_exception) if coordinator.last_exception else None
     return {
         "version": str(integration.version),
         "config": async_redact_data({**entry.data, **entry.options}, TO_REDACT),
@@ -41,12 +52,12 @@ async def async_get_config_entry_diagnostics(
         "center_source": data.center_source if data else None,
         "networks_from_entity": len(data.networks) if data and data.networks is not None else None,
         "last_update_success": coordinator.last_update_success,
-        "last_exception": repr(coordinator.last_exception) if coordinator.last_exception else None,
+        "last_exception": _without_tiles(last_exception),
         "generated": generated.isoformat() if generated else None,
         "data_age_hours": (
             round((dt_util.utcnow() - generated).total_seconds() / 3600, 1) if generated else None
         ),
-        "fetch": coordinator.diagnostics(),
+        "fetch": fetch,
         "station_count": data.station_count if data else None,
         "offers": sum(offer.merged for offer in data.offers) if data else 0,
         "top_offers": async_redact_data(

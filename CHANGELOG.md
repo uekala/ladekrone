@@ -3,6 +3,7 @@
 ## 0.9.4
 
 - **Neuer Datenstand auch nach einem gestörten Abruf.** Scheiterte beim stündlichen Abruf eine einzelne Kachel, merkte sich Ladekrone trotzdem die Kennungen (ETags) der schon geladenen Dateien. Beim nächsten Versuch hieß es dann „unverändert“, und Sensoren und Karte zeigten bis zum nächsten Datenlauf den alten Stand. Jetzt übernimmt Ladekrone Inhalte und Kennungen nur gemeinsam.
+- **Diagnosedaten ohne Hinweis auf den Standort.** Scheiterte der Abruf einer Kachel, stand ihre Adresse samt Kachel-Schlüssel in den Diagnosedaten; der Schlüssel verrät grob die Gegend des Suchgebiets. Er wird jetzt ausgeblendet.
 - Web-App: Das Suchfeld zeigt beim Tastaturfokus den üblichen Fokusring statt nur einer anderen Rahmenfarbe.
 - Web-App: Schlägt das Laden der Preise fehl, steht neben dem Hinweis ein Knopf „Erneut versuchen“ – kein Neuladen der Seite mehr nötig. Das gilt für die Preise am Ort und für die Grunddaten beim Start.
 
