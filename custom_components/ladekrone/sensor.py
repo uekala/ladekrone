@@ -169,6 +169,10 @@ class LadekroneSensor(CoordinatorEntity[LadekroneCoordinator], SensorEntity):
     """Ein Ladekrone-Sensor."""
 
     _attr_has_entity_name = True
+    # Das Alter des Preises ändert sich bei jeder Auswertung, die Liste der Angebote
+    # ist groß. Beide stehen weiter am Sensor, gehen aber nicht in den Verlauf;
+    # sonst schriebe die Datenbank alle paar Minuten einen neuen Attributsatz.
+    _unrecorded_attributes = frozenset({"offers", "price_age_hours"})
     entity_description: LadekroneSensorDescription
 
     def __init__(
