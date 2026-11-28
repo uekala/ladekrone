@@ -156,6 +156,68 @@ async def test_keeps_old_data_when_refetch_fails(
     assert float(state.state) == 0.49
 
 
+async def test_failed_tile_does_not_freeze_old_data(
+    hass: HomeAssistant,
+    aioclient_mock: AiohttpClientMocker,
+    freezer: FrozenDateTimeFactory,
+    published_data,
+) -> None:
+    """Scheitert beim stündlichen Abruf eine Kachel, kommt der neue Stand beim nächsten Versuch.
+
+    Bisher merkte sich Ladekrone die ETags der schon geladenen Dateien, obwohl der
+    Abruf als Ganzes scheiterte. Der nächste Versuch bekam darauf ein 304, und der
+    alte Stand galt bis zum nächsten Datenlauf als aktuell.
+    """
+    freezer.move_to(datetime(2026, 10, 27, 11, 0, tzinfo=UTC))
+    meta, tiles = published_data
+    newer = {**meta, "generated": "2026-10-27T09:00:00+00:00"}
+    served: dict = {"meta": (meta, '"meta-1"'), "tiles_fail": False}
+
+    async def _meta(method, url, data):
+        payload, etag = served["meta"]
+        sent = aioclient_mock.mock_calls[-1][3] or {}
+        if sent.get("If-None-Match") == etag:
+            return AiohttpClientMockResponse(method, url, status=304)
+        return AiohttpClientMockResponse(method, url, json=payload, headers={"ETag": etag})
+
+    def _tile(payload: dict, etag: str):
+        async def _respond(method, url, data):
+            if served["tiles_fail"]:
+                return AiohttpClientMockResponse(method, url, status=503)
+            sent = aioclient_mock.mock_calls[-1][3] or {}
+            if sent.get("If-None-Match") == etag:
+                return AiohttpClientMockResponse(method, url, status=304)
+            return AiohttpClientMockResponse(method, url, json=payload, headers={"ETag": etag})
+
+        return _respond
+
+    aioclient_mock.get(f"{DATA_URL}/meta.json", side_effect=_meta)
+    for key, tile in tiles.items():
+        aioclient_mock.get(f"{DATA_URL}/tiles/{key}.json", side_effect=_tile(tile, f'"{key}-1"'))
+
+    entry = _entry(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    stamp = "sensor.ladekrone_data_timestamp"
+    assert hass.states.get(stamp).state == "2026-10-27T03:00:00+00:00"
+
+    # Neuer Datenstand, aber beim stündlichen Abruf scheitern die Kacheln
+    served["meta"] = (newer, '"meta-2"')
+    served["tiles_fail"] = True
+    freezer.tick(timedelta(hours=1, minutes=1))
+    async_fire_time_changed(hass, dt_util.utcnow())
+    await hass.async_block_till_done(wait_background_tasks=True)
+    assert hass.states.get(stamp).state == "2026-10-27T03:00:00+00:00"
+
+    # Beim nächsten Versuch klappt alles: jetzt muss der neue Stand da sein
+    served["tiles_fail"] = False
+    freezer.tick(timedelta(minutes=6))
+    async_fire_time_changed(hass, dt_util.utcnow())
+    await hass.async_block_till_done(wait_background_tasks=True)
+    assert hass.states.get(stamp).state == "2026-10-27T09:00:00+00:00"
+    assert float(hass.states.get("sensor.ladekrone_cheapest_price").state) == 0.49
+
+
 async def test_unload(
     hass: HomeAssistant, aioclient_mock: AiohttpClientMocker, published_data
 ) -> None:

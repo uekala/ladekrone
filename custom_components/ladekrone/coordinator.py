@@ -338,8 +338,9 @@ class LadekroneCoordinator(DataUpdateCoordinator[LadekroneData]):
         results = await asyncio.gather(
             *(self._async_get_json(f"{url}/tiles/{key}.json", key) for key in missing)
         )
-        for key, payload in zip(missing, results, strict=True):
+        for key, (payload, etag) in zip(missing, results, strict=True):
             self._tiles[key] = list((payload or {}).get("stations") or [])
+            self._remember_etag(key, etag)
         if len(self._tiles) > MAX_CACHED_TILES:
             keep = set(self._wanted_tiles(lat, lon, self._meta))
             for key in [k for k in self._tiles if k not in keep]:
@@ -348,7 +349,7 @@ class LadekroneCoordinator(DataUpdateCoordinator[LadekroneData]):
 
     async def _async_fetch(self, lat: float, lon: float) -> None:
         settings = self.settings
-        meta = await self._async_get_json(f"{settings.data_url}/meta.json", "meta")
+        meta, meta_etag = await self._async_get_json(f"{settings.data_url}/meta.json", "meta")
         if meta is None:
             if self._meta is None:
                 raise ValueError("meta.json nicht verfügbar")
@@ -361,44 +362,57 @@ class LadekroneCoordinator(DataUpdateCoordinator[LadekroneData]):
             *(self._async_get_json(f"{settings.data_url}/tiles/{key}.json", key) for key in wanted)
         )
         tiles: dict[str, list[dict]] = {}
-        for key, payload in zip(wanted, results, strict=True):
+        etags: dict[str, str] = {"meta": meta_etag} if meta_etag else {}
+        for key, (payload, etag) in zip(wanted, results, strict=True):
             if payload is None:
                 tiles[key] = self._tiles.get(key, [])
             else:
                 tiles[key] = list(payload.get("stations") or [])
+            if etag:
+                etags[key] = etag
+        # Inhalte und ETags erst übernehmen, wenn alles da ist. Scheitert eine
+        # Kachel, bleiben die alten ETags; sonst hielte ein 304 beim nächsten
+        # Versuch den alten Stand für aktuell. ETags verworfener Kacheln fallen weg.
         self._meta = meta
         self._tiles = tiles
-        # ETags verworfener Kacheln vergessen, sonst käme bei der Rückkehr ein 304
-        # für Inhalte, die nicht mehr im Speicher liegen.
-        self._etags = {k: v for k, v in self._etags.items() if k == "meta" or k in tiles}
+        self._etags = etags
 
     def _has_cached(self, cache_key: str) -> bool:
         """Liegt der Inhalt zu diesem Schlüssel noch im Speicher?"""
         return self._meta is not None if cache_key == "meta" else cache_key in self._tiles
 
-    async def _async_get_json(self, url: str, cache_key: str) -> dict[str, Any] | None:
-        """Lädt JSON; None bedeutet 'unverändert' (304), eine fehlende Kachel (404) ist leer.
+    def _remember_etag(self, cache_key: str, etag: str | None) -> None:
+        if etag:
+            self._etags[cache_key] = etag
+        else:
+            self._etags.pop(cache_key, None)
 
-        If-None-Match geht nur mit, solange der Inhalt noch im Speicher liegt; nur dann
-        darf ein 304 'nimm den vorhandenen Stand' heißen.
+    async def _async_get_json(
+        self, url: str, cache_key: str
+    ) -> tuple[dict[str, Any] | None, str | None]:
+        """Lädt JSON und liefert es mit seinem ETag.
+
+        None als Inhalt bedeutet 'unverändert' (304), eine fehlende Kachel (404) ist
+        leer. If-None-Match geht nur mit, solange der Inhalt noch im Speicher liegt;
+        nur dann darf ein 304 'nimm den vorhandenen Stand' heißen. Die ETags merkt
+        sich erst der Aufrufer, zusammen mit dem Inhalt.
         """
         headers = {}
-        if self._has_cached(cache_key) and (etag := self._etags.get(cache_key)):
-            headers["If-None-Match"] = etag
+        sent = self._etags.get(cache_key) if self._has_cached(cache_key) else None
+        if sent:
+            headers["If-None-Match"] = sent
         async with asyncio.timeout(REQUEST_TIMEOUT):
             async with self._session.get(url, headers=headers) as response:
                 if response.status == 304:
-                    return None
+                    return None, sent
                 if response.status == 404 and cache_key != "meta":
-                    self._etags.pop(cache_key, None)
-                    return {"stations": []}
+                    return {"stations": []}, None
                 response.raise_for_status()
                 payload = await response.json(content_type=None)
-                if etag := response.headers.get("ETag"):
-                    self._etags[cache_key] = etag
+                etag = response.headers.get("ETag")
         if not isinstance(payload, dict):
             raise ValueError(f"Unerwartete Antwort von {url}")
-        return payload
+        return payload, etag
 
 
 def _attribution(meta: dict[str, Any]) -> str:
