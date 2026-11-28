@@ -21,7 +21,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: github-pages
-      url: ${{ steps.deploy.outputs.page_url }}
+      url: ${{ steps.deploy.outputs.page_url || steps.deploy_retry.outputs.page_url }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -89,6 +89,18 @@ jobs:
         with:
           path: public
 
+      # Direkt nach dem Hochladen findet deploy-pages das Artefakt manchmal noch
+      # nicht („No artifacts named github-pages“). Dann kurz warten und einmal
+      # neu versuchen, statt die gesammelten Daten zu verwerfen.
       - id: deploy
         if: steps.cert.outputs.ready == 'true'
+        continue-on-error: true
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
+
+      - name: Vor dem zweiten Versuch warten
+        if: steps.cert.outputs.ready == 'true' && steps.deploy.outcome == 'failure'
+        run: sleep 30
+
+      - id: deploy_retry
+        if: steps.cert.outputs.ready == 'true' && steps.deploy.outcome == 'failure'
         uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
